@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tasklike Player</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2028%2028%22%20width%3D%2228%22%20height%3D%2228%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%235ca7ff%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%231a52a3%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%2228%22%20height%3D%2228%22%20rx%3D%229%22%20fill%3D%22url%28%23g%29%22%2F%3E%3Cpath%20d%3D%22M9%206.2v15.6L21%2014%209%206.2z%22%20fill%3D%22%23041226%22%2F%3E%3C%2Fsvg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --pane: #161a20;
+      --pane-2: #1b2028;
+      --header: rgba(18, 21, 26, .82);
+      --line: rgba(255, 255, 255, .07);
+      --line-strong: rgba(255, 255, 255, .12);
+      --text: #eef2f6;
+      --text-2: #c5ccd6;
+      --muted: #8b95a3;
+      --teal: #5ca7ff;
+      --teal-soft: rgba(92, 167, 255, .16);
+      --next: #9fd0ff;
+      --next-soft: rgba(159, 208, 255, .14);
+      --warn-bg: #2a2412;
+      --warn-text: #f3e2a0;
+      --danger: #ff8b8b;
+      --shadow: 0 18px 50px rgba(0, 0, 0, .38);
+      --radius: 16px;
+      --control-h: 36px;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; height: 100%;
+      background:
+        radial-gradient(1200px 500px at 12% -10%, rgba(92, 167, 255, .10), transparent 50%),
+        radial-gradient(900px 420px at 100% 0%, rgba(88, 120, 255, .08), transparent 46%),
+        var(--bg);
+      color: var(--text);
+      font-family: Outfit, "Segoe UI", sans-serif;
+      font-size: 14px;
+    }
+    body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    button, input, select { font-family: inherit; font-size: 13px; }
+    button {
+      background: var(--pane-2); border: 1px solid var(--line-strong); color: var(--text-2);
+      padding: 0 12px; height: var(--control-h); border-radius: 999px; cursor: pointer;
+      letter-spacing: .01em; display: inline-flex; align-items: center; justify-content: center;
+      gap: 6px; transition: background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease;
+      white-space: nowrap;
+    }
+    button:hover { background: #242a33; color: var(--text); border-color: rgba(92, 167, 255, .32); }
+    button:active { transform: translateY(1px); }
+    button.active { background: var(--teal-soft); border-color: rgba(92, 167, 255, .45); color: var(--teal); }
+    button.icon-btn { width: var(--control-h); padding: 0; min-width: var(--control-h); }
+    .titlebar {
+      background: var(--header); backdrop-filter: blur(18px); border-bottom: 1px solid var(--line);
+      padding: 8px 12px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .logo-mark {
+      width: 28px; height: 28px; border-radius: 9px;
+      background: linear-gradient(160deg, #5ca7ff, #1a52a3);
+      display: grid; place-items: center; color: #041226; flex-shrink: 0;
+      box-shadow: 0 0 18px rgba(92, 167, 255, .32);
+    }
+    .titlebar h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+    .titlebar .status {
+      margin-left: auto; font-family: "IBM Plex Mono", monospace; color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;
+      background: rgba(255,255,255,.03); border: 1px solid var(--line);
+      border-radius: 999px; padding: 6px 12px; max-width: 58%;
+    }
+    .toolbar {
+      padding: 6px 10px 8px; display: flex; align-items: center; gap: 6px;
+      flex-wrap: wrap; flex-shrink: 0;
+    }
+    .toolbar select, .search-wrap input, dialog input, #speed {
+      background: #0e1116; color: var(--text); border: 1px solid var(--line-strong);
+      border-radius: 999px; padding: 0 12px; height: var(--control-h);
+    }
+    .toolbar select { min-width: 180px; color: var(--teal); }
+    .search-wrap {
+      margin-left: auto; display: flex; align-items: center; gap: 8px;
+      color: var(--muted); font-size: 12px; font-weight: 500;
+    }
+    .search-wrap input { width: 240px; }
+    .search-wrap input:focus, .toolbar select:focus, dialog input:focus,
+    #progress:focus, #volume:focus, #speed:focus {
+      outline: 2px solid rgba(92, 167, 255, .32); outline-offset: 1px;
+    }
+    #warn-banner {
+      display: none; margin: 0; background: var(--warn-bg); color: var(--warn-text);
+      padding: 6px 12px; align-items: center; justify-content: space-between;
+      gap: 10px; flex-shrink: 0; border: 1px solid rgba(243, 226, 160, .18);
+    }
+    #warn-banner.visible { display: flex; }
+    #warn-banner button { height: 28px; padding: 0 10px; }
+    .layout {
+      flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 360px;
+      min-height: 0; gap: 0; padding: 0;
+    }
+    .player-column, .queue-panel {
+      min-width: 0; min-height: 0; display: flex; flex-direction: column;
+      background: var(--pane); border: 0; border-radius: 0; overflow: hidden; box-shadow: none;
+    }
+    .player-column { border-right: 1px solid var(--line); }
+    .queue-panel { border-left: 1px solid var(--line); }
+    .player-frame { flex: 1; min-height: 0; background: #000; }
+    #player { width: 100%; height: 100%; background: #000; }
+    .now-playing-card {
+      display: grid; grid-template-columns: 72px 1fr auto; gap: 8px; align-items: center;
+      padding: 8px 10px; background: linear-gradient(180deg, #1a1f27, #14181e);
+      border-top: 1px solid var(--line); flex-shrink: 0;
+    }
+    .now-playing-card img {
+      width: 72px; height: 40px; object-fit: cover; background: #000;
+      border-radius: 8px; border: 1px solid var(--line-strong);
+    }
+    .now-meta .label { font-size: 10px; color: var(--teal); font-weight: 700; letter-spacing: .16em; }
+    .now-meta h2 { margin: 3px 0 2px; font-size: 17px; font-weight: 600; line-height: 1.25; }
+    .now-meta .sub { font-family: "IBM Plex Mono", monospace; color: var(--muted); font-size: 12px; }
+    .now-actions { display: flex; gap: 6px; }
+    .queue-head {
+      padding: 14px 14px 10px; display: flex; align-items: flex-end;
+      justify-content: space-between; gap: 12px; flex-shrink: 0;
+    }
+    .queue-head h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .14em; color: var(--muted); }
+    .queue-head .count { font-family: "IBM Plex Mono", monospace; color: var(--teal); font-size: 12px; }
+    .queue-cols {
+      display: grid; grid-template-columns: 44px 54px 1fr 40px; gap: 0;
+      padding: 0 12px 8px; color: var(--muted); font-size: 11px;
+      letter-spacing: .08em; text-transform: uppercase; flex-shrink: 0;
+    }
+    .queue-list { overflow: auto; flex: 1; padding: 0 8px 10px; }
+    .q-item {
+      display: grid; grid-template-columns: 44px 54px 1fr 32px; gap: 0;
+      align-items: center; padding: 8px; cursor: grab; user-select: none;
+      border-radius: 12px; margin-bottom: 4px; border: 1px solid transparent;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .q-item:hover { background: rgba(255,255,255,.04); }
+    .q-item.playing { background: var(--teal-soft); border-color: rgba(92, 167, 255, .22); }
+    .q-item.next-up { background: var(--next-soft); border-color: rgba(214, 255, 106, .16); }
+    .q-item.gone { opacity: .45; }
+    .q-item.dragging { opacity: .45; }
+    .q-step { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
+    .q-item.playing .q-step { color: var(--teal); }
+    .q-item.next-up .q-step { color: var(--next); }
+    .q-item img { width: 48px; height: 27px; object-fit: cover; background: #000; border-radius: 6px; border: 1px solid var(--line); }
+    .q-title { padding-left: 10px; font-size: 13px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .q-orig { font-family: "IBM Plex Mono", monospace; color: var(--muted); font-size: 11px; padding-left: 10px; }
+    .q-remove { width: 28px; height: 28px; min-width: 28px; padding: 0; opacity: 0; background: transparent; border: 0; color: var(--muted); }
+    .q-item:hover .q-remove, .q-item:focus-within .q-remove { opacity: 1; }
+    .q-remove:hover { color: var(--danger); }
+    .empty-queue { color: var(--muted); padding: 36px 20px; text-align: center; line-height: 1.5; }
+    .empty-queue strong { display: block; color: var(--text); margin-bottom: 8px; font-size: 15px; }
+    .bottom-bar {
+      margin: 0; background: var(--pane); border: 1px solid var(--line); border-radius: 0;
+      border-left: 0; border-right: 0; border-bottom: 0; padding: 8px 12px 9px; flex-shrink: 0;
+    }
+    .progress-row { display: grid; grid-template-columns: 56px 1fr 56px; gap: 10px; align-items: center; margin-bottom: 10px; }
+    .time { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--teal); font-variant-numeric: tabular-nums; }
+    .time.right { text-align: right; }
+    #progress, #volume {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
+      border-radius: 999px; background: #2a313b; border: 0; outline: none;
+    }
+    #progress::-webkit-slider-thumb, #volume::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px; background: var(--teal);
+      border: 0; border-radius: 50%; cursor: pointer; box-shadow: 0 0 0 4px rgba(92, 167, 255, .18);
+    }
+    .controls-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .transport { display: flex; align-items: center; gap: 6px; }
+    .transport button { min-width: 44px; height: 38px; }
+    #btn-play { min-width: 88px; font-weight: 700; background: var(--teal); color: #062016; border-color: transparent; }
+    #btn-play:hover { background: #73ffc9; color: #062016; }
+    .volume-wrap, .speed-wrap { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 500; }
+    .volume-wrap { min-width: 188px; }
+    #volume { width: 108px; }
+    #speed { width: 72px; padding: 0 8px; color: var(--teal); }
+    #vol-label { width: 40px; font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--teal); font-variant-numeric: tabular-nums; }
+    .keys-hint { color: var(--muted); font-size: 11px; max-width: 280px; }
+    .hidden-file { display: none; }
+    dialog { background: #171b21; color: var(--text); border: 1px solid var(--line-strong); border-radius: 18px; padding: 18px; width: min(400px, 92vw); box-shadow: var(--shadow); }
+    dialog::backdrop { background: rgba(0,0,0,.72); }
+    dialog h3 { margin: 0 0 8px; font-size: 16px; }
+    dialog input { width: 100%; margin: 10px 0 14px; }
+    #drop-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(6, 16, 12, .72);
+      border: 2px dashed var(--teal); z-index: 40; place-items: center;
+      color: var(--teal); font-size: 22px; font-weight: 650; letter-spacing: .04em;
+    }
+    #drop-overlay.visible { display: grid; }
+    #toast {
+      position: fixed; right: 18px; bottom: 18px; background: #1c222b; border: 1px solid var(--line-strong);
+      color: var(--text); padding: 10px 14px; border-radius: 12px; z-index: 50;
+      opacity: 0; pointer-events: none; transform: translateY(8px);
+      transition: opacity .2s ease, transform .2s ease; max-width: min(360px, calc(100vw - 36px));
+    }
+    #toast.visible { opacity: 1; transform: none; }
+    @media (max-width: 980px) {
+      body { overflow: auto; height: auto; min-height: 100vh; }
+      .layout { grid-template-columns: 1fr; }
+      .player-frame { min-height: 220px; aspect-ratio: 16 / 9; flex: none; }
+      .queue-panel { min-height: 280px; }
+      .keys-hint { display: none; }
+      .search-wrap { margin-left: 0; width: 100%; }
+      .search-wrap input { width: 100%; }
+      .titlebar { flex-wrap: wrap; }
+      .titlebar .status { max-width: 100%; margin-left: 0; }
+      .controls-row { flex-wrap: wrap; }
+    }
+    html[data-theme="classic"] {
+      --bg: #121212; --pane: #161616; --pane-2: #242424; --header: #1a1a1a;
+      --line: #000; --line-strong: #3a3a3a; --text: #d8d8d8; --text-2: #cfcfcf;
+      --muted: #7a8898; --teal: #5ca7ff; --teal-soft: #0d1a2e; --next: #9fd0ff;
+      --next-soft: #0c1622; --warn-bg: #2a2208; --warn-text: #e6d48a;
+      --shadow: none; --radius: 1px; --control-h: 26px;
+    }
+    html[data-theme="classic"] html, html[data-theme="classic"],
+    html[data-theme="classic"] body { background: var(--bg); color: var(--text); font-family: Rajdhani, "Segoe UI", sans-serif; }
+    html[data-theme="classic"] button, html[data-theme="classic"] input,
+    html[data-theme="classic"] select { font-size: 12px; }
+    html[data-theme="classic"] button {
+      background: #242424; border: 1px solid #3a3a3a; border-top-color: #555;
+      border-left-color: #444; color: #cfcfcf; padding: 5px 10px; height: auto;
+      min-height: 26px; border-radius: 1px; text-transform: uppercase; letter-spacing: .04em;
+    }
+    html[data-theme="classic"] button:hover { background: #2c2c2c; color: var(--teal); border-color: #3a3a3a; }
+    html[data-theme="classic"] button.active {
+      background: #0d1a2e; border-color: #1a52a3; color: var(--teal);
+      box-shadow: inset 0 0 8px rgba(92, 167, 255, .18);
+    }
+    html[data-theme="classic"] .titlebar { background: #1a1a1a; backdrop-filter: none; border-bottom: 1px solid #000; padding: 6px 10px; }
+    html[data-theme="classic"] .logo-mark { width: 18px; height: 18px; border-radius: 1px; box-shadow: none; }
+    html[data-theme="classic"] .titlebar h1 { font-size: 15px; font-weight: 700; letter-spacing: .12em; color: var(--teal); }
+    html[data-theme="classic"] .titlebar .status { margin-left: auto; font-family: "Share Tech Mono", monospace; background: transparent; border: 0; border-radius: 0; padding: 0; color: var(--muted); }
+    html[data-theme="classic"] .toolbar { background: #1c1c1c; border-bottom: 1px solid #000; padding: 6px 8px; gap: 6px; }
+    html[data-theme="classic"] .toolbar select, html[data-theme="classic"] .search-wrap input,
+    html[data-theme="classic"] dialog input, html[data-theme="classic"] #speed {
+      background: #0d0d0d; color: var(--teal); border: 1px solid #333; border-radius: 1px; height: 26px; font-family: "Share Tech Mono", monospace;
+    }
+    html[data-theme="classic"] .search-wrap { text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+    html[data-theme="classic"] #warn-banner { margin: 0; border-radius: 0; border: 0; border-bottom: 1px solid #000; padding: 5px 10px; }
+    html[data-theme="classic"] .layout { gap: 0; padding: 0; grid-template-columns: minmax(0, 1fr) 360px; }
+    html[data-theme="classic"] .player-column, html[data-theme="classic"] .queue-panel { background: #000; border: 0; border-radius: 0; box-shadow: none; }
+    html[data-theme="classic"] .player-column { border-right: 1px solid #000; }
+    html[data-theme="classic"] .queue-panel { background: #161616; border-left: 1px solid #000; }
+    html[data-theme="classic"] .player-frame { box-shadow: inset 0 0 0 1px #222; }
+    html[data-theme="classic"] .now-playing-card { grid-template-columns: 72px 1fr auto; gap: 8px; padding: 8px 10px; background: #141414; border-top: 1px solid #000; box-shadow: inset 0 1px 0 #2a2a2a; }
+    html[data-theme="classic"] .now-playing-card img { width: 72px; height: 40px; border-radius: 0; border: 1px solid #333; }
+    html[data-theme="classic"] .now-meta .label, html[data-theme="classic"] .now-meta .sub,
+    html[data-theme="classic"] .queue-head .count, html[data-theme="classic"] .q-step,
+    html[data-theme="classic"] .q-orig, html[data-theme="classic"] .time,
+    html[data-theme="classic"] #vol-label { font-family: "Share Tech Mono", monospace; }
+    html[data-theme="classic"] .now-meta h2 { margin: 1px 0; font-size: 16px; }
+    html[data-theme="classic"] .queue-head { padding: 7px 10px; background: #1a1a1a; border-bottom: 1px solid #000; }
+    html[data-theme="classic"] .queue-head h3 { color: var(--teal); }
+    html[data-theme="classic"] .queue-cols { padding: 4px 8px; background: #101010; color: #5ca7ff; border-bottom: 1px solid #000; }
+    html[data-theme="classic"] .queue-list { padding: 0; }
+    html[data-theme="classic"] .q-item { grid-template-columns: 44px 54px 1fr 32px; padding: 4px 8px; border-radius: 0; margin: 0; border: 0; border-bottom: 1px solid #1e1e1e; }
+    html[data-theme="classic"] .q-item:nth-child(even) { background: #141414; }
+    html[data-theme="classic"] .q-item:hover { background: #242424; }
+    html[data-theme="classic"] .q-item.playing { background: #0c2418; box-shadow: inset 3px 0 0 var(--teal); border-color: transparent; }
+    html[data-theme="classic"] .q-item.next-up { background: #1a220c; box-shadow: inset 3px 0 0 var(--next); border-color: transparent; }
+    html[data-theme="classic"] .q-item img { border-radius: 0; border: 1px solid #2a2a2a; }
+    html[data-theme="classic"] .q-title, html[data-theme="classic"] .q-orig { padding-left: 8px; }
+    html[data-theme="classic"] .bottom-bar { margin: 0; background: linear-gradient(#222, #161616); border: 0; border-top: 1px solid #000; border-radius: 0; box-shadow: inset 0 1px 0 #333; padding: 8px 10px 7px; }
+    html[data-theme="classic"] #progress, html[data-theme="classic"] #volume { height: 8px; border-radius: 0; background: #0a0a0a; border: 1px solid #333; }
+    html[data-theme="classic"] #progress::-webkit-slider-thumb, html[data-theme="classic"] #volume::-webkit-slider-thumb { width: 10px; height: 16px; border-radius: 0; background: var(--teal); border: 1px solid #0a5; box-shadow: 0 0 6px rgba(92, 167, 255, .5); }
+    html[data-theme="classic"] .time { text-shadow: 0 0 6px rgba(92, 167, 255, .35); }
+    html[data-theme="classic"] .transport button { min-width: 40px; height: 30px; }
+    html[data-theme="classic"] #btn-play { min-width: 58px; background: #1a1a1a; color: var(--teal); border-color: #3a3a3a; }
+    html[data-theme="classic"] #btn-play:hover { background: #2c2c2c; color: var(--teal); }
+    html[data-theme="classic"] .volume-wrap, html[data-theme="classic"] .speed-wrap { text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+    html[data-theme="classic"] dialog { background: #1a1a1a; border: 1px solid #333; border-radius: 1px; box-shadow: none; }
+    html[data-theme="classic"] dialog h3 { color: var(--teal); font-size: 14px; }
+    html[data-theme="classic"] #toast { right: 10px; bottom: 10px; background: #1a1a1a; border: 1px solid #333; border-radius: 1px; }
+    html[data-theme="classic"] #drop-overlay { border-radius: 0; }
+  </style>
+</head>
+<body>
+  <header class="titlebar">
+    <div class="brand">
+      <div class="logo-mark" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M3 2.2v9.6L12 7 3 2.2z"/></svg>
+      </div>
+      <h1>Tasklike Player</h1>
+    </div>
+    <div class="status" id="status">Loading…</div>
+  </header>
+  <div class="toolbar">
+    <select id="playlist-select" title="Saved playlists"></select>
+    <button id="btn-save-as">Save</button>
+    <button id="btn-delete-pl" title="Delete the selected saved playlist">Delete save</button>
+    <button id="btn-hide-gone" class="active">Hide gone</button>
+    <button id="btn-fullscreen">Fullscreen</button>
+    <button id="btn-theme" title="Switch between modern and classic look">Classic</button>
+    <div class="search-wrap">
+      <span>Search</span>
+      <input id="search" type="search" placeholder="Title or number" autocomplete="off">
+    </div>
+  </div>
+  <div id="warn-banner">
+    <span id="warn-text"></span>
+    <button id="warn-dismiss">Dismiss</button>
+  </div>
+  <main class="layout">
+    <section class="player-column">
+      <div class="player-frame" id="player-frame"><div id="player"></div></div>
+      <div class="now-playing-card">
+        <img id="now-art" alt="" src="">
+        <div class="now-meta">
+          <div class="label">NOW PLAYING</div>
+          <h2 id="now-title">Nothing playing</h2>
+          <div class="sub" id="now-sub">Load a playlist to start</div>
+        </div>
+        <div class="now-actions">
+          <button id="btn-open-yt" title="Open this video on YouTube">YouTube</button>
+        </div>
+      </div>
+    </section>
+    <aside class="queue-panel">
+      <div class="queue-head">
+        <h3>GUIDE / QUEUE</h3>
+        <div class="count" id="queue-count">0 / 0</div>
+      </div>
+      <div class="queue-cols">
+        <span>Step</span><span></span><span>Title</span><span></span>
+      </div>
+      <div class="queue-list" id="queue-list"></div>
+    </aside>
+  </main>
+  <footer class="bottom-bar">
+    <div class="progress-row">
+      <div class="time" id="time-cur">0:00</div>
+      <input id="progress" type="range" min="0" max="1000" value="0">
+      <div class="time right" id="time-dur">0:00</div>
+    </div>
+    <div class="controls-row">
+      <div class="keys-hint">Space play · ← → seek · ↑ ↓ volume · M mute · F7 prev · F8 play · F9 next</div>
+      <div class="transport">
+        <button id="btn-prev" title="Previous (F7)">Prev</button>
+        <button id="btn-play" title="Play/Pause (F8 or Space)">Play</button>
+        <button id="btn-next" title="Next (F9)">Next</button>
+        <button id="btn-shuffle" class="active" title="Shuffle on/off">Shuffle</button>
+        <button id="btn-loop" title="Loop current">Loop</button>
+      </div>
+      <div class="speed-wrap" title="Playback speed">
+        <span>Speed</span>
+        <select id="speed">
+          <option value="0.75">0.75×</option>
+          <option value="1" selected>1×</option>
+          <option value="1.25">1.25×</option>
+          <option value="1.5">1.5×</option>
+          <option value="2">2×</option>
+        </select>
+      </div>
+      <div class="volume-wrap">
+        <button id="btn-mute" class="icon-btn" title="Mute (M)">Mute</button>
+        <input id="volume" type="range" min="0" max="1000" value="900">
+        <span id="vol-label">80%</span>
+      </div>
+    </div>
+  </footer>
+  <dialog id="save-dialog">
+    <h3>Save playlist</h3>
+    <input id="save-name" placeholder="Playlist name">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="save-cancel">Cancel</button>
+      <button id="save-ok">Save</button>
+    </div>
+  </dialog>
+  <div id="toast" role="status"></div>
+
+  <script>
+    const STORE_KEY = "ytPlaylistPlayer.straight.v1";
+    const TITLE_CACHE_KEY = "ytPlaylistPlayer.titles.straight.v1";
+    const SAVE_FORMAT = "playlist-player-v4";
+    const DEFAULT_PLAYLIST_NAME = "Tasklike";
+    const BUILTIN_SAVE = {
+  "_format": "playlist-player-v4",
+  "settings": {
+    "theme": "classic",
+    "shuffle": true,
+    "loopCurrent": false,
+    "hideGone": true,
+    "volume": 30,
+    "playbackRate": 1
+  },
+  "current": {
+    "name": "Tasklike",
+    "url": "https://www.youtube.com/watch?v=fjLxd6SnwI8&list=PLCkc8vHfqcGqDrApY5s2dahvJFr5NCdRH",
+    "ids": [
+      "2juWhQh8Vuw",
+      "YkDedQUq8GA",
+      "rTic9hFbEoo",
+      "QoGz2r0Ln1Q",
+      "fjLxd6SnwI8",
+      "Bh-aGHkEzFM",
+      "xM-fnWfqZe8",
+      "pTFk21vU3u0",
+      "6mdGfI1POkk",
+      "wfd7oREXc34",
+      "GuW9_utNSP4",
+      "ARhsIE55BYk",
+      "LE_4basg-Uo",
+      "_W4S46_qnG8",
+      "XYwu6gF6xTY",
+      "CtxU0CaUzDw",
+      "uDNYPsQY93w",
+      "c1_F44j_X40",
+      "B7JyT18RzU0",
+      "JXgFi89uA4c",
+      "Oua15tie79w",
+      "39zdNoTirfI",
+      "gL47RLtMd-Q",
+      "OcOmteMZk90",
+      "bkZ6b6TIDtg",
+      "ERv8EE8G24I",
+      "l9pTJxKsrQw",
+      "3IIANqJ6FJM",
+      "s46vIwNr5Bo",
+      "6BD69eKYhDk",
+      "njKD_6U1pNg",
+      "p_A1RTEB2yk",
+      "rbzzCvkJL4I",
+      "0v9e_3SFuJ8",
+      "N6TW1nmy2bw",
+      "MF1KVbQZuis",
+      "ELgtpeioQTg",
+      "Rv2Tk_aos-Y",
+      "qNrUej_qht4",
+      "wJjWpt1KJes",
+      "M5GezBVtSqk",
+      "IsfD5FU46BQ",
+      "dQJpYUvawrI",
+      "2RK88D6njk8",
+      "thPgmFbSb-8",
+      "IEE3mSrBytQ",
+      "D6kaPHB4sjs",
+      "wQXcHCgW464",
+      "rvQTMLsqoXI",
+      "6lJpPnvUDDs",
+      "0uM5a8x8-NQ",
+      "neSaxutzZQk",
+      "yd7XWRzkFx0",
+      "lA-mFpNJkfs",
+      "k9EXmhjgrZk",
+      "65HCUosHK1s",
+      "Lyqis3lCKUo",
+      "vLDqffPlZtk",
+      "bR3vO0101WA",
+      "T2wHaAAp7G4",
+      "5KHrMpHd9A0",
+      "Zoe0XDie4lo",
+      "oqqPeJ3Fa8w",
+      "c4P3EkXy7Vk",
+      "UVvsH6PiFPk",
+      "CdpnVE34B4Q",
+      "cUWfBTxPljI",
+      "DWuRguViBUk",
+      "A_QCTXDyo8g",
+      "2kzFviDJ0Rc",
+      "JrtFmHZle-0",
+      "vEl29wlZwtM",
+      "o0JwS889DO8",
+      "nqMZLkXtNMk",
+      "Jvol-b14hzs",
+      "hWaMnZYqiSU",
+      "IM1eV9_68Q8",
+      "S21OJICoTnk",
+      "AuJYu8e3Ut4",
+      "14gCqGoRu50",
+      "KB05uaDpeY0",
+      "5TE-0WQqwJE",
+      "8WwMOaJGXZo",
+      "LQBxXr-Z0Dw",
+      "MYIKkp9Xmx0",
+      "t8GxTdNVWoM",
+      "-INjCBlaIqs",
+      "5lK8zylCieA",
+      "qBLsFfEgBgo",
+      "LZLDxwC1oyg",
+      "s0YgEIty-v4",
+      "Fo2mPf2NDvo",
+      "vmC3Gckgci8",
+      "AmJd4zCp-LI",
+      "VuEZoaiXubA",
+      "OV08x-ZJyuU",
+      "uMll_eH0DTk",
+      "lq_21t2Rf2Y",
+      "nbDXmKlSRsQ",
+      "h78Slbf-fGw",
+      "geLs042zTe8",
+      "jWeG9xVAsLw"
+    ],
+    "titles": {
+      "2juWhQh8Vuw": "Dine and Dash (Taskmaster OST)",
+      "YkDedQUq8GA": "Telly Trouble (Taskmaster OST)",
+      "rTic9hFbEoo": "Funky Farm (Taskmaster OST)",
+      "QoGz2r0Ln1Q": "Tricky Things (Taskmaster OST)",
+      "fjLxd6SnwI8": "Russian Russout (Taskmaster OST Cover)",
+      "Bh-aGHkEzFM": "Taskmaster Theme Song [High Quality]",
+      "xM-fnWfqZe8": "Duck Felling (Taskmaster OST Cover)",
+      "pTFk21vU3u0": "Dignity Intact (Taskmaster OST Cover)",
+      "6mdGfI1POkk": "Dracula's Day Off (Taskmaster OST Cover)",
+      "wfd7oREXc34": "Slow Burn (Taskmaster OST Cover)",
+      "GuW9_utNSP4": "Science House No. 2 (Taskmaster OST Cover)",
+      "ARhsIE55BYk": "Canvas Chaos (Taskmaster OST Cover)",
+      "LE_4basg-Uo": "Miracle Rock (Taskmaster OST Cover)",
+      "_W4S46_qnG8": "Easy Doesn't (Taskmaster OST)",
+      "XYwu6gF6xTY": "Slow Ranch (Taskmaster OST)",
+      "CtxU0CaUzDw": "Coco Nutty (Taskmaster OST)",
+      "uDNYPsQY93w": "Russian Go Lucky (Taskmaster OST)",
+      "c1_F44j_X40": "Frazzle Dazzle (Taskmaster OST Cover)",
+      "B7JyT18RzU0": "The New House (Taskmaster OST)",
+      "JXgFi89uA4c": "Baroque-step (Taskmaster OST Cover)",
+      "Oua15tie79w": "Pop Poppers (Taskmaster OST)",
+      "39zdNoTirfI": "Pump Bump (Taskmaster OST)",
+      "gL47RLtMd-Q": "Stuck in the Muddle (Taskmaster OST Cover)",
+      "OcOmteMZk90": "General Tune No. 4 (Taskmaster OST Cover)",
+      "bkZ6b6TIDtg": "Ryokan Ryocan't (Taskmaster OST)",
+      "ERv8EE8G24I": "Anime Magic (Taskmaster OST)",
+      "l9pTJxKsrQw": "Science House No. 1 (Taskmaster OST Cover)",
+      "3IIANqJ6FJM": "Obstacles (Taskmaster OST Cover)",
+      "s46vIwNr5Bo": "Get Magna Carta (Taskmaster OST)",
+      "6BD69eKYhDk": "Hodge Podge (Taskmaster OST)",
+      "njKD_6U1pNg": "Blinky UFO (Taskmaster OST Cover)",
+      "p_A1RTEB2yk": "That One TM Tune (Taskmaster OST)",
+      "rbzzCvkJL4I": "Doggy-Dog World (Taskmaster OST)",
+      "0v9e_3SFuJ8": "Race the Clock (Taskmaster OST Cover)",
+      "N6TW1nmy2bw": "Silly String (Taskmaster OST Cover)",
+      "MF1KVbQZuis": "Urgency Agency (Taskmaster OST)",
+      "ELgtpeioQTg": "Ska Face (Taskmaster OST)",
+      "Rv2Tk_aos-Y": "Circle (Taskmaster OST)",
+      "qNrUej_qht4": "Anime Punk House (Taskmaster OST)",
+      "wJjWpt1KJes": "Stress Day (Taskmaster OST)",
+      "M5GezBVtSqk": "Rushin' Russian (Taskmaster OST Cover)",
+      "IsfD5FU46BQ": "Nautical House (TM OST Cover)",
+      "dQJpYUvawrI": "Clown Town (Taskmaster OST Cover)",
+      "2RK88D6njk8": "Master of Jazz (Taskmaster OST Cover)",
+      "thPgmFbSb-8": "Mr. Minpict (Taskmaster OST Cover)",
+      "IEE3mSrBytQ": "Bucketheads (Taskmaster OST Cover)",
+      "D6kaPHB4sjs": "Balalaika Chiptune Groove (Taskmaster OST Cover)",
+      "wQXcHCgW464": "My Banjo Baby (Taskmaster OST Cover)",
+      "rvQTMLsqoXI": "Jaunty Antics (Taskmaster OST Cover)",
+      "6lJpPnvUDDs": "Jingle Ducks (Taskmaster OST Cover)",
+      "0uM5a8x8-NQ": "Steamroller (Taskmaster OST Cover)",
+      "neSaxutzZQk": "Tumbleweed Shuffle (Taskmaster OST Cover)",
+      "yd7XWRzkFx0": "Cirque De Tâches (Taskmaster OST Cover)",
+      "lA-mFpNJkfs": "Chuck The Dog (Taskmaster OST Cover)",
+      "k9EXmhjgrZk": "Bubbly Beeps (Taskmaster OST Cover)",
+      "65HCUosHK1s": "Bernard's Fun House (Taskmaster OST Cover)",
+      "Lyqis3lCKUo": "Tree Extended (Taskmaster OST Cover)",
+      "vLDqffPlZtk": "Speedy Task No. 1 (Taskmaster OST Cover)",
+      "bR3vO0101WA": "Fake House (Taskmaster OST)",
+      "T2wHaAAp7G4": "Tense as a Banjo (Taskmaster OST)",
+      "5KHrMpHd9A0": "Balkan Punk (Taskmaster OST)",
+      "Zoe0XDie4lo": "Make It Wayne (Taskmaster OST Cover)",
+      "oqqPeJ3Fa8w": "Roaring 20s (Taskmaster OST)",
+      "c4P3EkXy7Vk": "Head in the Clouds - In Full (Taskmaster OST)",
+      "UVvsH6PiFPk": "Main Theme Musicbox (Taskmaster OST)",
+      "CdpnVE34B4Q": "More Spies (Taskmaster OST)",
+      "cUWfBTxPljI": "Unicorns (Taskmaster OST)",
+      "DWuRguViBUk": "Studio Madness (Taskmaster OST)",
+      "A_QCTXDyo8g": "Laika in Space (Taskmaster OST)",
+      "2kzFviDJ0Rc": "Evil Clown (Taskmaster OST)",
+      "JrtFmHZle-0": "Creepy Crane (Taskmaster OST)",
+      "vEl29wlZwtM": "Sideshow (Taskmaster OST)",
+      "o0JwS889DO8": "Going Loco (Taskmaster OST)",
+      "nqMZLkXtNMk": "Bunch of Clowns (Taskmaster OST)",
+      "Jvol-b14hzs": "Banjo Tango (Taskmaster OST)",
+      "hWaMnZYqiSU": "Groove Thang (Taskmaster OST)",
+      "IM1eV9_68Q8": "Doors Film Jazz (Taskmaster OST)",
+      "S21OJICoTnk": "Day of the Fred (Taskmaster OST)",
+      "AuJYu8e3Ut4": "Completely Random (Taskmaster OST)",
+      "14gCqGoRu50": "Bit of a Waltz (Taskmaster OST)",
+      "KB05uaDpeY0": "Sombre Sombrero (Taskmaster OST)",
+      "5TE-0WQqwJE": "Casa Mexicana (Taskmaster OST)",
+      "8WwMOaJGXZo": "What McWhat Face (Taskmaster OST)",
+      "LQBxXr-Z0Dw": "Studio Stuff (Taskmaster OST)",
+      "MYIKkp9Xmx0": "No No Mexico (Taskmaster OST)",
+      "t8GxTdNVWoM": "Mexi Cant (Taskmaster OST)",
+      "-INjCBlaIqs": "Circus House (Taskmaster OST)",
+      "5lK8zylCieA": "Hurdy Gurdy (Taskmaster OST)",
+      "qBLsFfEgBgo": "General Tune No. 3 (Taskmaster OST)",
+      "LZLDxwC1oyg": "Bad Machine (Taskmaster OST)",
+      "s0YgEIty-v4": "Copy Alex (Taskmaster OST)",
+      "Fo2mPf2NDvo": "The Pipes The Pipes (Taskmaster OST)",
+      "vmC3Gckgci8": "Hollyweird (Taskmaster OST)",
+      "AmJd4zCp-LI": "Steampunk House (Taskmaster OST)",
+      "VuEZoaiXubA": "2Tone Cowboy (Taskmaster OST)",
+      "OV08x-ZJyuU": "Victoriana (Taskmaster OST)",
+      "uMll_eH0DTk": "Baroque House (Taskmaster OST)",
+      "lq_21t2Rf2Y": "Hawaiian House (Taskmaster OST)",
+      "nbDXmKlSRsQ": "Russian Folk Ska (Taskmaster OST)",
+      "h78Slbf-fGw": "Baroque and Roll (Taskmaster OST)",
+      "geLs042zTe8": "Taller Than a Wolf (Taskmaster OST)",
+      "jWeG9xVAsLw": "Rotten Eggs (Taskmaster OST)"
+    },
+    "authors": {
+      "2juWhQh8Vuw": "vineytunes",
+      "YkDedQUq8GA": "vineytunes",
+      "rTic9hFbEoo": "vineytunes",
+      "QoGz2r0Ln1Q": "vineytunes",
+      "fjLxd6SnwI8": "vineytunes",
+      "Bh-aGHkEzFM": "vineytunes",
+      "xM-fnWfqZe8": "vineytunes",
+      "pTFk21vU3u0": "vineytunes",
+      "6mdGfI1POkk": "vineytunes",
+      "wfd7oREXc34": "vineytunes",
+      "GuW9_utNSP4": "vineytunes",
+      "ARhsIE55BYk": "vineytunes",
+      "LE_4basg-Uo": "vineytunes",
+      "_W4S46_qnG8": "vineytunes",
+      "XYwu6gF6xTY": "vineytunes",
+      "CtxU0CaUzDw": "vineytunes",
+      "uDNYPsQY93w": "vineytunes",
+      "c1_F44j_X40": "vineytunes",
+      "B7JyT18RzU0": "vineytunes",
+      "JXgFi89uA4c": "vineytunes",
+      "Oua15tie79w": "vineytunes",
+      "39zdNoTirfI": "vineytunes",
+      "gL47RLtMd-Q": "vineytunes",
+      "OcOmteMZk90": "vineytunes",
+      "bkZ6b6TIDtg": "vineytunes",
+      "ERv8EE8G24I": "vineytunes",
+      "l9pTJxKsrQw": "vineytunes",
+      "3IIANqJ6FJM": "vineytunes",
+      "s46vIwNr5Bo": "vineytunes",
+      "6BD69eKYhDk": "vineytunes",
+      "njKD_6U1pNg": "vineytunes",
+      "p_A1RTEB2yk": "vineytunes",
+      "rbzzCvkJL4I": "vineytunes",
+      "0v9e_3SFuJ8": "vineytunes",
+      "N6TW1nmy2bw": "vineytunes",
+      "MF1KVbQZuis": "vineytunes",
+      "ELgtpeioQTg": "vineytunes",
+      "Rv2Tk_aos-Y": "vineytunes",
+      "qNrUej_qht4": "vineytunes",
+      "wJjWpt1KJes": "vineytunes",
+      "M5GezBVtSqk": "vineytunes",
+      "IsfD5FU46BQ": "vineytunes",
+      "dQJpYUvawrI": "vineytunes",
+      "2RK88D6njk8": "vineytunes",
+      "thPgmFbSb-8": "vineytunes",
+      "IEE3mSrBytQ": "vineytunes",
+      "D6kaPHB4sjs": "vineytunes",
+      "wQXcHCgW464": "vineytunes",
+      "rvQTMLsqoXI": "vineytunes",
+      "6lJpPnvUDDs": "vineytunes",
+      "0uM5a8x8-NQ": "vineytunes",
+      "neSaxutzZQk": "vineytunes",
+      "yd7XWRzkFx0": "vineytunes",
+      "lA-mFpNJkfs": "vineytunes",
+      "k9EXmhjgrZk": "vineytunes",
+      "65HCUosHK1s": "vineytunes",
+      "Lyqis3lCKUo": "vineytunes",
+      "vLDqffPlZtk": "vineytunes",
+      "bR3vO0101WA": "vineytunes",
+      "T2wHaAAp7G4": "vineytunes",
+      "5KHrMpHd9A0": "vineytunes",
+      "Zoe0XDie4lo": "vineytunes",
+      "oqqPeJ3Fa8w": "vineytunes",
+      "c4P3EkXy7Vk": "vineytunes",
+      "UVvsH6PiFPk": "vineytunes",
+      "CdpnVE34B4Q": "vineytunes",
+      "cUWfBTxPljI": "vineytunes",
+      "DWuRguViBUk": "vineytunes",
+      "A_QCTXDyo8g": "vineytunes",
+      "2kzFviDJ0Rc": "vineytunes",
+      "JrtFmHZle-0": "vineytunes",
+      "vEl29wlZwtM": "vineytunes",
+      "o0JwS889DO8": "vineytunes",
+      "nqMZLkXtNMk": "vineytunes",
+      "Jvol-b14hzs": "vineytunes",
+      "hWaMnZYqiSU": "vineytunes",
+      "IM1eV9_68Q8": "vineytunes",
+      "S21OJICoTnk": "vineytunes",
+      "AuJYu8e3Ut4": "vineytunes",
+      "14gCqGoRu50": "vineytunes",
+      "KB05uaDpeY0": "vineytunes",
+      "5TE-0WQqwJE": "vineytunes",
+      "8WwMOaJGXZo": "vineytunes",
+      "LQBxXr-Z0Dw": "vineytunes",
+      "MYIKkp9Xmx0": "vineytunes",
+      "t8GxTdNVWoM": "vineytunes",
+      "-INjCBlaIqs": "vineytunes",
+      "5lK8zylCieA": "vineytunes",
+      "qBLsFfEgBgo": "vineytunes",
+      "LZLDxwC1oyg": "vineytunes",
+      "s0YgEIty-v4": "vineytunes",
+      "Fo2mPf2NDvo": "vineytunes",
+      "vmC3Gckgci8": "vineytunes",
+      "AmJd4zCp-LI": "vineytunes",
+      "VuEZoaiXubA": "vineytunes",
+      "OV08x-ZJyuU": "vineytunes",
+      "uMll_eH0DTk": "vineytunes",
+      "lq_21t2Rf2Y": "vineytunes",
+      "nbDXmKlSRsQ": "vineytunes",
+      "h78Slbf-fGw": "vineytunes",
+      "geLs042zTe8": "vineytunes",
+      "jWeG9xVAsLw": "vineytunes"
+    }
+  },
+  "saved": {
+    "Tasklike": {
+      "name": "Tasklike",
+      "url": "https://www.youtube.com/watch?v=fjLxd6SnwI8&list=PLCkc8vHfqcGqDrApY5s2dahvJFr5NCdRH",
+      "ids": [
+        "2juWhQh8Vuw",
+        "YkDedQUq8GA",
+        "rTic9hFbEoo",
+        "QoGz2r0Ln1Q",
+        "fjLxd6SnwI8",
+        "Bh-aGHkEzFM",
+        "xM-fnWfqZe8",
+        "pTFk21vU3u0",
+        "6mdGfI1POkk",
+        "wfd7oREXc34",
+        "GuW9_utNSP4",
+        "ARhsIE55BYk",
+        "LE_4basg-Uo",
+        "_W4S46_qnG8",
+        "XYwu6gF6xTY",
+        "CtxU0CaUzDw",
+        "uDNYPsQY93w",
+        "c1_F44j_X40",
+        "B7JyT18RzU0",
+        "JXgFi89uA4c",
+        "Oua15tie79w",
+        "39zdNoTirfI",
+        "gL47RLtMd-Q",
+        "OcOmteMZk90",
+        "bkZ6b6TIDtg",
+        "ERv8EE8G24I",
+        "l9pTJxKsrQw",
+        "3IIANqJ6FJM",
+        "s46vIwNr5Bo",
+        "6BD69eKYhDk",
+        "njKD_6U1pNg",
+        "p_A1RTEB2yk",
+        "rbzzCvkJL4I",
+        "0v9e_3SFuJ8",
+        "N6TW1nmy2bw",
+        "MF1KVbQZuis",
+        "ELgtpeioQTg",
+        "Rv2Tk_aos-Y",
+        "qNrUej_qht4",
+        "wJjWpt1KJes",
+        "M5GezBVtSqk",
+        "IsfD5FU46BQ",
+        "dQJpYUvawrI",
+        "2RK88D6njk8",
+        "thPgmFbSb-8",
+        "IEE3mSrBytQ",
+        "D6kaPHB4sjs",
+        "wQXcHCgW464",
+        "rvQTMLsqoXI",
+        "6lJpPnvUDDs",
+        "0uM5a8x8-NQ",
+        "neSaxutzZQk",
+        "yd7XWRzkFx0",
+        "lA-mFpNJkfs",
+        "k9EXmhjgrZk",
+        "65HCUosHK1s",
+        "Lyqis3lCKUo",
+        "vLDqffPlZtk",
+        "bR3vO0101WA",
+        "T2wHaAAp7G4",
+        "5KHrMpHd9A0",
+        "Zoe0XDie4lo",
+        "oqqPeJ3Fa8w",
+        "c4P3EkXy7Vk",
+        "UVvsH6PiFPk",
+        "CdpnVE34B4Q",
+        "cUWfBTxPljI",
+        "DWuRguViBUk",
+        "A_QCTXDyo8g",
+        "2kzFviDJ0Rc",
+        "JrtFmHZle-0",
+        "vEl29wlZwtM",
+        "o0JwS889DO8",
+        "nqMZLkXtNMk",
+        "Jvol-b14hzs",
+        "hWaMnZYqiSU",
+        "IM1eV9_68Q8",
+        "S21OJICoTnk",
+        "AuJYu8e3Ut4",
+        "14gCqGoRu50",
+        "KB05uaDpeY0",
+        "5TE-0WQqwJE",
+        "8WwMOaJGXZo",
+        "LQBxXr-Z0Dw",
+        "MYIKkp9Xmx0",
+        "t8GxTdNVWoM",
+        "-INjCBlaIqs",
+        "5lK8zylCieA",
+        "qBLsFfEgBgo",
+        "LZLDxwC1oyg",
+        "s0YgEIty-v4",
+        "Fo2mPf2NDvo",
+        "vmC3Gckgci8",
+        "AmJd4zCp-LI",
+        "VuEZoaiXubA",
+        "OV08x-ZJyuU",
+        "uMll_eH0DTk",
+        "lq_21t2Rf2Y",
+        "nbDXmKlSRsQ",
+        "h78Slbf-fGw",
+        "geLs042zTe8",
+        "jWeG9xVAsLw"
+      ],
+      "titles": {
+        "2juWhQh8Vuw": "Dine and Dash (Taskmaster OST)",
+        "YkDedQUq8GA": "Telly Trouble (Taskmaster OST)",
+        "rTic9hFbEoo": "Funky Farm (Taskmaster OST)",
+        "QoGz2r0Ln1Q": "Tricky Things (Taskmaster OST)",
+        "fjLxd6SnwI8": "Russian Russout (Taskmaster OST Cover)",
+        "Bh-aGHkEzFM": "Taskmaster Theme Song [High Quality]",
+        "xM-fnWfqZe8": "Duck Felling (Taskmaster OST Cover)",
+        "pTFk21vU3u0": "Dignity Intact (Taskmaster OST Cover)",
+        "6mdGfI1POkk": "Dracula's Day Off (Taskmaster OST Cover)",
+        "wfd7oREXc34": "Slow Burn (Taskmaster OST Cover)",
+        "GuW9_utNSP4": "Science House No. 2 (Taskmaster OST Cover)",
+        "ARhsIE55BYk": "Canvas Chaos (Taskmaster OST Cover)",
+        "LE_4basg-Uo": "Miracle Rock (Taskmaster OST Cover)",
+        "_W4S46_qnG8": "Easy Doesn't (Taskmaster OST)",
+        "XYwu6gF6xTY": "Slow Ranch (Taskmaster OST)",
+        "CtxU0CaUzDw": "Coco Nutty (Taskmaster OST)",
+        "uDNYPsQY93w": "Russian Go Lucky (Taskmaster OST)",
+        "c1_F44j_X40": "Frazzle Dazzle (Taskmaster OST Cover)",
+        "B7JyT18RzU0": "The New House (Taskmaster OST)",
+        "JXgFi89uA4c": "Baroque-step (Taskmaster OST Cover)",
+        "Oua15tie79w": "Pop Poppers (Taskmaster OST)",
+        "39zdNoTirfI": "Pump Bump (Taskmaster OST)",
+        "gL47RLtMd-Q": "Stuck in the Muddle (Taskmaster OST Cover)",
+        "OcOmteMZk90": "General Tune No. 4 (Taskmaster OST Cover)",
+        "bkZ6b6TIDtg": "Ryokan Ryocan't (Taskmaster OST)",
+        "ERv8EE8G24I": "Anime Magic (Taskmaster OST)",
+        "l9pTJxKsrQw": "Science House No. 1 (Taskmaster OST Cover)",
+        "3IIANqJ6FJM": "Obstacles (Taskmaster OST Cover)",
+        "s46vIwNr5Bo": "Get Magna Carta (Taskmaster OST)",
+        "6BD69eKYhDk": "Hodge Podge (Taskmaster OST)",
+        "njKD_6U1pNg": "Blinky UFO (Taskmaster OST Cover)",
+        "p_A1RTEB2yk": "That One TM Tune (Taskmaster OST)",
+        "rbzzCvkJL4I": "Doggy-Dog World (Taskmaster OST)",
+        "0v9e_3SFuJ8": "Race the Clock (Taskmaster OST Cover)",
+        "N6TW1nmy2bw": "Silly String (Taskmaster OST Cover)",
+        "MF1KVbQZuis": "Urgency Agency (Taskmaster OST)",
+        "ELgtpeioQTg": "Ska Face (Taskmaster OST)",
+        "Rv2Tk_aos-Y": "Circle (Taskmaster OST)",
+        "qNrUej_qht4": "Anime Punk House (Taskmaster OST)",
+        "wJjWpt1KJes": "Stress Day (Taskmaster OST)",
+        "M5GezBVtSqk": "Rushin' Russian (Taskmaster OST Cover)",
+        "IsfD5FU46BQ": "Nautical House (TM OST Cover)",
+        "dQJpYUvawrI": "Clown Town (Taskmaster OST Cover)",
+        "2RK88D6njk8": "Master of Jazz (Taskmaster OST Cover)",
+        "thPgmFbSb-8": "Mr. Minpict (Taskmaster OST Cover)",
+        "IEE3mSrBytQ": "Bucketheads (Taskmaster OST Cover)",
+        "D6kaPHB4sjs": "Balalaika Chiptune Groove (Taskmaster OST Cover)",
+        "wQXcHCgW464": "My Banjo Baby (Taskmaster OST Cover)",
+        "rvQTMLsqoXI": "Jaunty Antics (Taskmaster OST Cover)",
+        "6lJpPnvUDDs": "Jingle Ducks (Taskmaster OST Cover)",
+        "0uM5a8x8-NQ": "Steamroller (Taskmaster OST Cover)",
+        "neSaxutzZQk": "Tumbleweed Shuffle (Taskmaster OST Cover)",
+        "yd7XWRzkFx0": "Cirque De Tâches (Taskmaster OST Cover)",
+        "lA-mFpNJkfs": "Chuck The Dog (Taskmaster OST Cover)",
+        "k9EXmhjgrZk": "Bubbly Beeps (Taskmaster OST Cover)",
+        "65HCUosHK1s": "Bernard's Fun House (Taskmaster OST Cover)",
+        "Lyqis3lCKUo": "Tree Extended (Taskmaster OST Cover)",
+        "vLDqffPlZtk": "Speedy Task No. 1 (Taskmaster OST Cover)",
+        "bR3vO0101WA": "Fake House (Taskmaster OST)",
+        "T2wHaAAp7G4": "Tense as a Banjo (Taskmaster OST)",
+        "5KHrMpHd9A0": "Balkan Punk (Taskmaster OST)",
+        "Zoe0XDie4lo": "Make It Wayne (Taskmaster OST Cover)",
+        "oqqPeJ3Fa8w": "Roaring 20s (Taskmaster OST)",
+        "c4P3EkXy7Vk": "Head in the Clouds - In Full (Taskmaster OST)",
+        "UVvsH6PiFPk": "Main Theme Musicbox (Taskmaster OST)",
+        "CdpnVE34B4Q": "More Spies (Taskmaster OST)",
+        "cUWfBTxPljI": "Unicorns (Taskmaster OST)",
+        "DWuRguViBUk": "Studio Madness (Taskmaster OST)",
+        "A_QCTXDyo8g": "Laika in Space (Taskmaster OST)",
+        "2kzFviDJ0Rc": "Evil Clown (Taskmaster OST)",
+        "JrtFmHZle-0": "Creepy Crane (Taskmaster OST)",
+        "vEl29wlZwtM": "Sideshow (Taskmaster OST)",
+        "o0JwS889DO8": "Going Loco (Taskmaster OST)",
+        "nqMZLkXtNMk": "Bunch of Clowns (Taskmaster OST)",
+        "Jvol-b14hzs": "Banjo Tango (Taskmaster OST)",
+        "hWaMnZYqiSU": "Groove Thang (Taskmaster OST)",
+        "IM1eV9_68Q8": "Doors Film Jazz (Taskmaster OST)",
+        "S21OJICoTnk": "Day of the Fred (Taskmaster OST)",
+        "AuJYu8e3Ut4": "Completely Random (Taskmaster OST)",
+        "14gCqGoRu50": "Bit of a Waltz (Taskmaster OST)",
+        "KB05uaDpeY0": "Sombre Sombrero (Taskmaster OST)",
+        "5TE-0WQqwJE": "Casa Mexicana (Taskmaster OST)",
+        "8WwMOaJGXZo": "What McWhat Face (Taskmaster OST)",
+        "LQBxXr-Z0Dw": "Studio Stuff (Taskmaster OST)",
+        "MYIKkp9Xmx0": "No No Mexico (Taskmaster OST)",
+        "t8GxTdNVWoM": "Mexi Cant (Taskmaster OST)",
+        "-INjCBlaIqs": "Circus House (Taskmaster OST)",
+        "5lK8zylCieA": "Hurdy Gurdy (Taskmaster OST)",
+        "qBLsFfEgBgo": "General Tune No. 3 (Taskmaster OST)",
+        "LZLDxwC1oyg": "Bad Machine (Taskmaster OST)",
+        "s0YgEIty-v4": "Copy Alex (Taskmaster OST)",
+        "Fo2mPf2NDvo": "The Pipes The Pipes (Taskmaster OST)",
+        "vmC3Gckgci8": "Hollyweird (Taskmaster OST)",
+        "AmJd4zCp-LI": "Steampunk House (Taskmaster OST)",
+        "VuEZoaiXubA": "2Tone Cowboy (Taskmaster OST)",
+        "OV08x-ZJyuU": "Victoriana (Taskmaster OST)",
+        "uMll_eH0DTk": "Baroque House (Taskmaster OST)",
+        "lq_21t2Rf2Y": "Hawaiian House (Taskmaster OST)",
+        "nbDXmKlSRsQ": "Russian Folk Ska (Taskmaster OST)",
+        "h78Slbf-fGw": "Baroque and Roll (Taskmaster OST)",
+        "geLs042zTe8": "Taller Than a Wolf (Taskmaster OST)",
+        "jWeG9xVAsLw": "Rotten Eggs (Taskmaster OST)"
+      },
+      "authors": {
+        "2juWhQh8Vuw": "vineytunes",
+        "YkDedQUq8GA": "vineytunes",
+        "rTic9hFbEoo": "vineytunes",
+        "QoGz2r0Ln1Q": "vineytunes",
+        "fjLxd6SnwI8": "vineytunes",
+        "Bh-aGHkEzFM": "vineytunes",
+        "xM-fnWfqZe8": "vineytunes",
+        "pTFk21vU3u0": "vineytunes",
+        "6mdGfI1POkk": "vineytunes",
+        "wfd7oREXc34": "vineytunes",
+        "GuW9_utNSP4": "vineytunes",
+        "ARhsIE55BYk": "vineytunes",
+        "LE_4basg-Uo": "vineytunes",
+        "_W4S46_qnG8": "vineytunes",
+        "XYwu6gF6xTY": "vineytunes",
+        "CtxU0CaUzDw": "vineytunes",
+        "uDNYPsQY93w": "vineytunes",
+        "c1_F44j_X40": "vineytunes",
+        "B7JyT18RzU0": "vineytunes",
+        "JXgFi89uA4c": "vineytunes",
+        "Oua15tie79w": "vineytunes",
+        "39zdNoTirfI": "vineytunes",
+        "gL47RLtMd-Q": "vineytunes",
+        "OcOmteMZk90": "vineytunes",
+        "bkZ6b6TIDtg": "vineytunes",
+        "ERv8EE8G24I": "vineytunes",
+        "l9pTJxKsrQw": "vineytunes",
+        "3IIANqJ6FJM": "vineytunes",
+        "s46vIwNr5Bo": "vineytunes",
+        "6BD69eKYhDk": "vineytunes",
+        "njKD_6U1pNg": "vineytunes",
+        "p_A1RTEB2yk": "vineytunes",
+        "rbzzCvkJL4I": "vineytunes",
+        "0v9e_3SFuJ8": "vineytunes",
+        "N6TW1nmy2bw": "vineytunes",
+        "MF1KVbQZuis": "vineytunes",
+        "ELgtpeioQTg": "vineytunes",
+        "Rv2Tk_aos-Y": "vineytunes",
+        "qNrUej_qht4": "vineytunes",
+        "wJjWpt1KJes": "vineytunes",
+        "M5GezBVtSqk": "vineytunes",
+        "IsfD5FU46BQ": "vineytunes",
+        "dQJpYUvawrI": "vineytunes",
+        "2RK88D6njk8": "vineytunes",
+        "thPgmFbSb-8": "vineytunes",
+        "IEE3mSrBytQ": "vineytunes",
+        "D6kaPHB4sjs": "vineytunes",
+        "wQXcHCgW464": "vineytunes",
+        "rvQTMLsqoXI": "vineytunes",
+        "6lJpPnvUDDs": "vineytunes",
+        "0uM5a8x8-NQ": "vineytunes",
+        "neSaxutzZQk": "vineytunes",
+        "yd7XWRzkFx0": "vineytunes",
+        "lA-mFpNJkfs": "vineytunes",
+        "k9EXmhjgrZk": "vineytunes",
+        "65HCUosHK1s": "vineytunes",
+        "Lyqis3lCKUo": "vineytunes",
+        "vLDqffPlZtk": "vineytunes",
+        "bR3vO0101WA": "vineytunes",
+        "T2wHaAAp7G4": "vineytunes",
+        "5KHrMpHd9A0": "vineytunes",
+        "Zoe0XDie4lo": "vineytunes",
+        "oqqPeJ3Fa8w": "vineytunes",
+        "c4P3EkXy7Vk": "vineytunes",
+        "UVvsH6PiFPk": "vineytunes",
+        "CdpnVE34B4Q": "vineytunes",
+        "cUWfBTxPljI": "vineytunes",
+        "DWuRguViBUk": "vineytunes",
+        "A_QCTXDyo8g": "vineytunes",
+        "2kzFviDJ0Rc": "vineytunes",
+        "JrtFmHZle-0": "vineytunes",
+        "vEl29wlZwtM": "vineytunes",
+        "o0JwS889DO8": "vineytunes",
+        "nqMZLkXtNMk": "vineytunes",
+        "Jvol-b14hzs": "vineytunes",
+        "hWaMnZYqiSU": "vineytunes",
+        "IM1eV9_68Q8": "vineytunes",
+        "S21OJICoTnk": "vineytunes",
+        "AuJYu8e3Ut4": "vineytunes",
+        "14gCqGoRu50": "vineytunes",
+        "KB05uaDpeY0": "vineytunes",
+        "5TE-0WQqwJE": "vineytunes",
+        "8WwMOaJGXZo": "vineytunes",
+        "LQBxXr-Z0Dw": "vineytunes",
+        "MYIKkp9Xmx0": "vineytunes",
+        "t8GxTdNVWoM": "vineytunes",
+        "-INjCBlaIqs": "vineytunes",
+        "5lK8zylCieA": "vineytunes",
+        "qBLsFfEgBgo": "vineytunes",
+        "LZLDxwC1oyg": "vineytunes",
+        "s0YgEIty-v4": "vineytunes",
+        "Fo2mPf2NDvo": "vineytunes",
+        "vmC3Gckgci8": "vineytunes",
+        "AmJd4zCp-LI": "vineytunes",
+        "VuEZoaiXubA": "vineytunes",
+        "OV08x-ZJyuU": "vineytunes",
+        "uMll_eH0DTk": "vineytunes",
+        "lq_21t2Rf2Y": "vineytunes",
+        "nbDXmKlSRsQ": "vineytunes",
+        "h78Slbf-fGw": "vineytunes",
+        "geLs042zTe8": "vineytunes",
+        "jWeG9xVAsLw": "vineytunes"
+      }
+    },
+    "Simple": {
+      "name": "Simple",
+      "url": "https://www.youtube.com/watch?v=mSLuJYtl89Y&list=PLJwylQo4S1r-jNert4JUPPc-OjZV4Es9B",
+      "ids": [
+        "mSLuJYtl89Y",
+        "LZTOfQiudx0",
+        "E16yOc7-Chw",
+        "DQbEhEbGdQY",
+        "zQEP6kzuroI",
+        "LcVKysuGGfo",
+        "Lb5Mfvnp9pU",
+        "Bi5kyehmeaY",
+        "RQYh342H5ec",
+        "wDuoOapZ9Z0",
+        "MMzjThziUMQ",
+        "bJK1P1OVQ8Y",
+        "NSYkYauXWoM",
+        "MzJtclj8MRQ",
+        "OUrV3OHd6-c",
+        "AtXtXhZqc4s",
+        "RGa0vDKwtuY",
+        "egVPfQeyFmc",
+        "sk4QhMsTlRA",
+        "1PkRWWuIG2E",
+        "3fSu6NkFhIw",
+        "-aMbo_Sch0M",
+        "4MBeRNMGNJs",
+        "PB9j-QPG5d4",
+        "8vBgFQvdFcc",
+        "aRC29sr2P1s",
+        "zKJGxHvjcSI",
+        "lte7Y25OSmc",
+        "dIOVnWfRFB0"
+      ],
+      "titles": {
+        "mSLuJYtl89Y": "Lensko - Let's Go! | House | NCS - Copyright Free Music",
+        "LZTOfQiudx0": "bee.",
+        "E16yOc7-Chw": "Kevin MacLeod: Aces High",
+        "DQbEhEbGdQY": "Meep City  Soundtrack - Bouncy",
+        "zQEP6kzuroI": "Surasshu - Eek! (True Highest Quality)",
+        "LcVKysuGGfo": "Electric Daisies (scr)",
+        "Lb5Mfvnp9pU": "Bliss Boutique",
+        "Bi5kyehmeaY": "world without words",
+        "RQYh342H5ec": "Nintendo 3DS Nintendo Video Music",
+        "wDuoOapZ9Z0": "Levels (Original Version)",
+        "MMzjThziUMQ": "Arcade Weekend",
+        "bJK1P1OVQ8Y": "Protostar - New Horizons [Monstercat Release]",
+        "NSYkYauXWoM": "Solar Flares",
+        "MzJtclj8MRQ": "Gym Tonic Groove",
+        "OUrV3OHd6-c": "ParagonX9 - Infiltration",
+        "AtXtXhZqc4s": "doodle",
+        "RGa0vDKwtuY": "Achoo!",
+        "egVPfQeyFmc": "Ooblets!",
+        "sk4QhMsTlRA": "BANANA SHAKE (SPED UP)",
+        "1PkRWWuIG2E": "Friday Theme",
+        "3fSu6NkFhIw": "Lunar Abyss",
+        "-aMbo_Sch0M": "ねこあつめのテーマ",
+        "4MBeRNMGNJs": "frog summer",
+        "PB9j-QPG5d4": "Craig McConnell - Paradise Falls",
+        "8vBgFQvdFcc": "Ballons in the Desert, Co-Op 8",
+        "aRC29sr2P1s": "Cloud 9",
+        "zKJGxHvjcSI": "Move Like This",
+        "lte7Y25OSmc": "frog",
+        "dIOVnWfRFB0": "The Mountain Village"
+      },
+      "authors": {
+        "mSLuJYtl89Y": "NoCopyrightSounds",
+        "LZTOfQiudx0": "GroovyDominoes52 - Topic",
+        "E16yOc7-Chw": "Kevin MacLeod Archive",
+        "DQbEhEbGdQY": "Sparky",
+        "zQEP6kzuroI": "Alzter",
+        "LcVKysuGGfo": "GlobeLime Du192247",
+        "Lb5Mfvnp9pU": "Xploshi - Topic",
+        "Bi5kyehmeaY": "Nujabes - Topic",
+        "RQYh342H5ec": "DDRPenguins72",
+        "wDuoOapZ9Z0": "Avicii - Topic",
+        "MMzjThziUMQ": "Dr Music",
+        "bJK1P1OVQ8Y": "Monstercat Uncaged",
+        "NSYkYauXWoM": "Vance Westlake - Topic",
+        "MzJtclj8MRQ": "Sylvain Lux - Topic",
+        "OUrV3OHd6-c": "ParagonX9official",
+        "AtXtXhZqc4s": "Zachz Winner - Topic",
+        "RGa0vDKwtuY": "Tsundere Twintails - Topic",
+        "egVPfQeyFmc": "Pedro Silva - Topic",
+        "sk4QhMsTlRA": "HUS - Topic",
+        "1PkRWWuIG2E": "Uglyburger0 - Topic",
+        "3fSu6NkFhIw": "Lchavasse - Topic",
+        "-aMbo_Sch0M": "Ryo Shintani - Topic",
+        "4MBeRNMGNJs": "LEON - Topic",
+        "PB9j-QPG5d4": "Working Roblox Audios [Archive]",
+        "8vBgFQvdFcc": "Calum Bowen - Topic",
+        "aRC29sr2P1s": "Tobu - Topic",
+        "zKJGxHvjcSI": "Jules Gaia - Topic",
+        "lte7Y25OSmc": "Joyful   - Topic",
+        "dIOVnWfRFB0": "Calum Bowen - Topic"
+      }
+    },
+    "RealFr": {
+      "name": "RealFr",
+      "url": "https://www.youtube.com/watch?v=x9N3SOyRYVA&list=PLJwylQo4S1r_QabNPbrmRko0CD3YMB7Cs",
+      "ids": [
+        "x9N3SOyRYVA",
+        "c8trSrT2cx8",
+        "_Fxil2QY0wE",
+        "ISz6oMF0Okg",
+        "u5LJ34hqPF0",
+        "dP6v4pFdH6w",
+        "dTBeI0N6PKo",
+        "Q6MjA2jAtDA",
+        "9-CH8lwKeg0",
+        "kQO-VEXkq7c",
+        "lpI7z73rAHY",
+        "XSJzAtJhSd0",
+        "XJ-wfY_eHSE"
+      ],
+      "titles": {
+        "x9N3SOyRYVA": "Love is in Danger (Extended)",
+        "c8trSrT2cx8": "Save Me (Extended)",
+        "_Fxil2QY0wE": "Running In The 90's",
+        "ISz6oMF0Okg": "Remember Me",
+        "u5LJ34hqPF0": "Burning Up For You",
+        "dP6v4pFdH6w": "Be My Babe (Extended Mix)",
+        "dTBeI0N6PKo": "How Do You Do",
+        "Q6MjA2jAtDA": "Wonderland",
+        "9-CH8lwKeg0": "Din Don Dan",
+        "kQO-VEXkq7c": "WITHOUT YOU",
+        "lpI7z73rAHY": "Drive Me Faster Now! (Extended mix)",
+        "XSJzAtJhSd0": "Mickey B. - Let The Rain (Extended)",
+        "XJ-wfY_eHSE": "FIGHT ALL NIGHT"
+      },
+      "authors": {
+        "x9N3SOyRYVA": "Priscilla - Topic",
+        "c8trSrT2cx8": "LESLIE PARRISH - Topic",
+        "_Fxil2QY0wE": "MAX COVERI - Topic",
+        "ISz6oMF0Okg": "LESLIE PARRISH - Topic",
+        "u5LJ34hqPF0": "Sara - Topic",
+        "dP6v4pFdH6w": "JILLY - Topic",
+        "dTBeI0N6PKo": "Tim Savey - Topic",
+        "Q6MjA2jAtDA": "Sara - Topic",
+        "9-CH8lwKeg0": "SUZY LAZY - Topic",
+        "kQO-VEXkq7c": "DAVE RODGERS feat. ALEX DE ROSSO - Topic",
+        "lpI7z73rAHY": "PRETTY WOMAN - Topic",
+        "XSJzAtJhSd0": "Tank Sama",
+        "XJ-wfY_eHSE": "Dj Force - Topic"
+      }
+    },
+    "Brain": {
+      "name": "Brain",
+      "url": "https://www.youtube.com/watch?v=ZTVn6Mse_xQ&list=PLJ4YvmWwEZYCuqJZKr0Hff6JI8tKZVYNw",
+      "ids": [
+        "ZTVn6Mse_xQ",
+        "iRvkMzy4Gcg",
+        "zoq0tAKpLBI",
+        "PfxogZd2wj4",
+        "6pV-Qm0o6Rg",
+        "iJTpPH22Egg",
+        "sk4QhMsTlRA",
+        "56ZT2e2-VMA",
+        "f4GfEcTMADc",
+        "p3e_HwISnqs",
+        "cygu65ytwTc",
+        "AtXtXhZqc4s",
+        "_pwPm_VHWHU",
+        "F_X3qKVZrWU",
+        "TryBShCWfKc",
+        "7pPb5fmumNo",
+        "FA3a-HQtiAE",
+        "yWWQP6aOv0k",
+        "j1DnOm0DdQU"
+      ],
+      "titles": {
+        "ZTVn6Mse_xQ": "Cats on Mars",
+        "iRvkMzy4Gcg": "ぴぽぴぽ",
+        "zoq0tAKpLBI": "Cats",
+        "PfxogZd2wj4": "Hatachi No Koi",
+        "6pV-Qm0o6Rg": "from the start (meowfey)",
+        "iJTpPH22Egg": "Meow.",
+        "sk4QhMsTlRA": "BANANA SHAKE (SPED UP)",
+        "56ZT2e2-VMA": "Joy",
+        "f4GfEcTMADc": "silliest of them all",
+        "p3e_HwISnqs": "スマイリーを探して",
+        "cygu65ytwTc": "ALL MY FELLAS",
+        "AtXtXhZqc4s": "doodle",
+        "_pwPm_VHWHU": "Honeypie",
+        "F_X3qKVZrWU": "From the Start",
+        "TryBShCWfKc": "supїdo",
+        "7pPb5fmumNo": "Midnight Pretenders",
+        "FA3a-HQtiAE": "ロストアンブレラ",
+        "yWWQP6aOv0k": "booboo",
+        "j1DnOm0DdQU": "おつかれSUMMER"
+      },
+      "authors": {
+        "ZTVn6Mse_xQ": "SEATBELTS - Topic",
+        "iRvkMzy4Gcg": "Serani Poji - Topic",
+        "zoq0tAKpLBI": "The Living Tombstone - Topic",
+        "PfxogZd2wj4": "Lamp - Topic",
+        "6pV-Qm0o6Rg": "j1gggs",
+        "iJTpPH22Egg": "Dosbomb. - Topic",
+        "sk4QhMsTlRA": "HUS - Topic",
+        "56ZT2e2-VMA": "Frozy - Topic",
+        "f4GfEcTMADc": "xylz - Topic",
+        "p3e_HwISnqs": "Serani Poji - Topic",
+        "cygu65ytwTc": "Frizk - Topic",
+        "AtXtXhZqc4s": "Zachz Winner - Topic",
+        "_pwPm_VHWHU": "JAWNY - Topic",
+        "F_X3qKVZrWU": "Good Kid - Topic",
+        "TryBShCWfKc": "Frozy - Topic",
+        "7pPb5fmumNo": "Tomoko Aran - Topic",
+        "FA3a-HQtiAE": "inabakumori - Topic",
+        "yWWQP6aOv0k": "yaeji - Topic",
+        "j1DnOm0DdQU": "halcali - Topic"
+      }
+    },
+    "Stuffy": {
+      "name": "Stuffy",
+      "url": "https://www.youtube.com/watch?v=CZYNRrsgSeY&list=PLvUB_9sO-gcvGBiFAEAHRKJBJLQOyHwbd",
+      "ids": [
+        "CZYNRrsgSeY",
+        "QEpc7F6sS4M",
+        "uFLt7knYUek",
+        "mRD0-GxqHVo",
+        "MURua52_YPg",
+        "IxX_QHay02M",
+        "mTlfT4gw23E",
+        "Hy5uir7QlLc",
+        "7bywJmv8tvQ",
+        "ZEmU5-Bx63I",
+        "ueNY30Cs8Lk",
+        "LsHYFQgQxpw",
+        "rY-FJvRqK0E",
+        "HdNnJdd9ljY",
+        "HxL19VWL9TM",
+        "_Fxil2QY0wE",
+        "gVdc-U8DzY0",
+        "LjtvF_UuRIU",
+        "VRgEO8YsoGY",
+        "x9N3SOyRYVA",
+        "c8trSrT2cx8",
+        "dTBeI0N6PKo"
+      ],
+      "titles": {
+        "CZYNRrsgSeY": "Choose Your Fighter",
+        "QEpc7F6sS4M": "Unity",
+        "uFLt7knYUek": "I'm Good (Blue)",
+        "mRD0-GxqHVo": "Glass Animals - Heat Waves (Official Video)",
+        "MURua52_YPg": "My Ordinary Life",
+        "IxX_QHay02M": "W&W - OIIA OIIA (Spinning Cat)",
+        "mTlfT4gw23E": "CG5 - Forbidden Feeling (Official Music Video)",
+        "Hy5uir7QlLc": "Pajama Sam - Babagaboosh Groove Song - Lyric Video",
+        "7bywJmv8tvQ": "Credits Closing Theme",
+        "ZEmU5-Bx63I": "Hello Neighbor Song (Get Out)",
+        "ueNY30Cs8Lk": "Betsy, Мария Янковская – Sigma Boy (Official Music Video)",
+        "LsHYFQgQxpw": "grandson - Blood // Water (Lyrics)",
+        "rY-FJvRqK0E": "Kero Kero Bonito - Flamingo",
+        "HdNnJdd9ljY": "Fly Away",
+        "HxL19VWL9TM": "Jaxomy x Agatino Romero x Raffaella Carrà – Pedro (Official Video)",
+        "_Fxil2QY0wE": "Running In The 90's",
+        "gVdc-U8DzY0": "I Can’t Fix You",
+        "LjtvF_UuRIU": "Dancin (Krono Remix)",
+        "VRgEO8YsoGY": "ХАБИБ - Чебурашка",
+        "x9N3SOyRYVA": "Love is in Danger (Extended)",
+        "c8trSrT2cx8": "Save Me (Extended)",
+        "dTBeI0N6PKo": "How Do You Do"
+      },
+      "authors": {
+        "CZYNRrsgSeY": "Ava Max - Topic",
+        "QEpc7F6sS4M": "TheFatRat - Topic",
+        "uFLt7knYUek": "David Guetta - Topic",
+        "mRD0-GxqHVo": "GlassAnimalsVEVO",
+        "MURua52_YPg": "The Living Tombstone - Topic",
+        "IxX_QHay02M": "W&W",
+        "mTlfT4gw23E": "CG5",
+        "Hy5uir7QlLc": "Pajama Sam #0",
+        "7bywJmv8tvQ": "Valve",
+        "ZEmU5-Bx63I": "DAGames - Topic",
+        "ueNY30Cs8Lk": "Бэтси Girl",
+        "LsHYFQgQxpw": "Cakes & Eclairs",
+        "rY-FJvRqK0E": "Kero Kero Bonito",
+        "HdNnJdd9ljY": "TheFatRat",
+        "HxL19VWL9TM": "Jaxomy",
+        "_Fxil2QY0wE": "MAX COVERI - Topic",
+        "gVdc-U8DzY0": "CG5",
+        "LjtvF_UuRIU": "Aaron Smith",
+        "VRgEO8YsoGY": "ХАБИБ",
+        "x9N3SOyRYVA": "Priscilla - Topic",
+        "c8trSrT2cx8": "LESLIE PARRISH - Topic",
+        "dTBeI0N6PKo": "Tim Savey - Topic"
+      },
+      "unavailable": {},
+      "queue": [],
+      "queue_pos": 0
+    }
+  }
+};
+
+    const state = {
+      videos: [], queue: [], queuePos: 0,
+      shuffle: true, loopCurrent: false, hideGone: true,
+      volume: 30, lastVolume: 30, muted: false, playbackRate: 1,
+      currentTime: 0, duration: 0, playing: false,
+      player: null, playerReady: false, seeking: false, search: "",
+      unavailable: {}, warnDismissed: false,
+      playlistName: "Tasklike", playlistUrl: "", playlists: {},
+      theme: "classic", titleCache: {}, fetchingTitles: false
+    };
+
+    let ytApiReady = false, pendingVideoId = null, pendingPlay = false;
+    let saveTimer = null, tickTimer = null, ytPlaylistSig = "";
+    let sessionAudio = null, toastTimer = null, mediaSessionTimer = null;
+
+    function $(id) { return document.getElementById(id); }
+    function showToast(msg) {
+      const el = $("toast"); el.textContent = msg; el.classList.add("visible");
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("visible"), 2800);
+    }
+
+    /* ── Persistence ──────────────────────────────────────── */
+    function loadStore() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY); if (!raw) return;
+        const d = JSON.parse(raw);
+        if (typeof d.volume === "number") state.volume = d.volume;
+        if (typeof d.lastVolume === "number") state.lastVolume = d.lastVolume;
+        if (typeof d.muted === "boolean") state.muted = d.muted;
+        if (typeof d.playbackRate === "number") state.playbackRate = d.playbackRate;
+        if (typeof d.shuffle === "boolean") state.shuffle = d.shuffle;
+        if (typeof d.loopCurrent === "boolean") state.loopCurrent = d.loopCurrent;
+        if (typeof d.hideGone === "boolean") state.hideGone = d.hideGone;
+        if (d.playlistName) state.playlistName = d.playlistName;
+        if (d.playlistUrl) state.playlistUrl = d.playlistUrl;
+        if (typeof d.duration === "number") state.duration = d.duration;
+        if (d.playlists) state.playlists = d.playlists;
+        if (Array.isArray(d.videos) && d.videos.length) state.videos = d.videos;
+        if (Array.isArray(d.queue) && d.queue.length) state.queue = d.queue;
+        if (typeof d.queuePos === "number") state.queuePos = d.queuePos;
+        if (typeof d.currentTime === "number") state.currentTime = d.currentTime;
+        if (d.unavailable) state.unavailable = d.unavailable;
+        if (d.theme === "classic" || d.theme === "modern") state.theme = d.theme;
+      } catch (e) { console.warn("Could not restore settings", e); }
+    }
+    function persist() {
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        volume: state.volume, lastVolume: state.lastVolume, muted: state.muted,
+        playbackRate: state.playbackRate, shuffle: state.shuffle, loopCurrent: state.loopCurrent,
+        hideGone: state.hideGone, playlistName: state.playlistName, playlistUrl: state.playlistUrl,
+        playlists: state.playlists, videos: state.videos, queue: state.queue,
+        queuePos: state.queuePos, currentTime: state.currentTime, duration: state.duration,
+        unavailable: state.unavailable, theme: state.theme
+      }));
+    }
+    function schedulePersist() { clearTimeout(saveTimer); saveTimer = setTimeout(persist, 250); }
+
+    /* ── Title cache ─────────────────────────────────────── */
+    function loadTitleCache() { try { const r = localStorage.getItem(TITLE_CACHE_KEY); if (r) state.titleCache = JSON.parse(r); } catch (_) {} }
+    function saveTitleCache() { try { localStorage.setItem(TITLE_CACHE_KEY, JSON.stringify(state.titleCache)); } catch (_) {} }
+    function applyTitleCache() {
+      for (const v of state.videos) {
+        if (!v?.video_id) continue;
+        const c = state.titleCache[v.video_id]; if (!c) continue;
+        v.title = c.title || v.title;
+        v.author = c.author || v.author;
+      }
+    }
+    async function fetchOEmbed(vid) {
+      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 8000);
+      try {
+        const r = await fetch("https://www.youtube.com/oembed?url=" + encodeURIComponent("https://www.youtube.com/watch?v=" + vid) + "&format=json", { signal: ctrl.signal });
+        clearTimeout(t); if (!r.ok) return null; const d = await r.json();
+        return { title: d.title || "", author: d.author_name || "" };
+      } catch (_) { clearTimeout(t); return null; }
+    }
+    async function fetchMissingTitles() {
+      if (!state.videos.length || state.fetchingTitles) return;
+      const toFetch = [];
+      for (let i = 0; i < state.videos.length; i++) {
+        const v = state.videos[i]; if (!v.video_id) continue;
+        if (state.titleCache[v.video_id]) continue;
+        toFetch.push(i);
+      }
+      if (!toFetch.length) return;
+      state.fetchingTitles = true; updateStatus();
+      for (let i = 0; i < toFetch.length; i += 3) {
+        await Promise.allSettled(toFetch.slice(i, i + 3).map(async (idx) => {
+          const v = state.videos[idx]; const r = await fetchOEmbed(v.video_id);
+          if (r && r.title && r.title.trim().length > 2) {
+            v.title = r.title.trim(); if (r.author) v.author = r.author.trim();
+            state.titleCache[v.video_id] = { title: v.title, author: v.author };
+          }
+        }));
+        schedulePersist();
+        if (i % 9 === 0 || i + 3 >= toFetch.length) saveTitleCache();
+        renderQueue(); renderNowPlaying();
+        if (i + 3 < toFetch.length) await new Promise(r => setTimeout(r, 300));
+      }
+      state.fetchingTitles = false; updateStatus();
+    }
+
+    /* ── Built-in playlist helpers ───────────────────────── */
+    function videosFromBlock(blk) {
+      const ids = blk.ids || [];
+      const titles = blk.titles || {};
+      const authors = blk.authors || {};
+      return ids.map(id => ({ video_id: id, title: titles[id] || "", author: authors[id] || "", url: "" })).filter(v => v.video_id);
+    }
+
+    function restoreBlock(blk) {
+      state.videos = videosFromBlock(blk);
+      state.playlistName = blk.name || "Playlist";
+      state.playlistUrl = blk.url || "";
+      state.unavailable = blk.unavailable || {};
+      state.queue = [];
+      state.queuePos = 0;
+      state.warnDismissed = false;
+      $("warn-banner").classList.remove("visible");
+      for (const [id, title] of Object.entries(blk.titles || {})) {
+        if (!state.titleCache[id]) state.titleCache[id] = { title, author: "" };
+        else state.titleCache[id].title = title;
+      }
+      for (const [id, author] of Object.entries(blk.authors || {})) {
+        if (!state.titleCache[id]) state.titleCache[id] = { title: "", author };
+        else state.titleCache[id].author = author;
+      }
+      saveTitleCache();
+    }
+
+    function seedBuiltinPlaylists() {
+      const saved = (BUILTIN_SAVE && BUILTIN_SAVE.saved) || {};
+      for (const [name, pl] of Object.entries(saved)) {
+        if (!state.playlists[name]) {
+          state.playlists[name] = { videos: videosFromBlock(pl), url: pl.url || "" };
+        }
+      }
+    }
+
+    function forceTasklikeStart() {
+      seedBuiltinPlaylists();
+      const blk = (BUILTIN_SAVE.saved && BUILTIN_SAVE.saved.Tasklike) || BUILTIN_SAVE.current;
+      restoreBlock(blk);
+      state.shuffle = true;
+      state.loopCurrent = false;
+      state.playlistName = DEFAULT_PLAYLIST_NAME;
+      createQueue();
+      state.queuePos = 0;
+      state.currentTime = 0;
+    }
+
+    /* ── Utilities ───────────────────────────────────────── */
+    function formatTime(sec) {
+      if (!Number.isFinite(sec) || sec < 0) return "0:00";
+      const s = Math.floor(sec), m = Math.floor(s / 60), r = s % 60, h = Math.floor(m / 60);
+      if (h) return h + ":" + String(m % 60).padStart(2, "0") + ":" + String(r).padStart(2, "0");
+      return m + ":" + String(r).padStart(2, "0");
+    }
+    function thumbUrl(id) { return "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg"; }
+    function youtubeUrl(id) { return "https://www.youtube.com/watch?v=" + id; }
+    function escapeHtml(s) { return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;"); }
+    function restoreProgressUi() {
+      $("time-cur").textContent = formatTime(state.currentTime);
+      $("time-dur").textContent = formatTime(state.duration);
+      if (state.duration > 0) $("progress").value = String(Math.round((state.currentTime / state.duration) * 1000));
+    }
+
+    /* ── Playlist URL helpers ────────────────────────────── */
+    function playlistIdFromText(input) {
+      const raw = String(input || "");
+      const m = raw.match(/[?&]list=([A-Za-z0-9_-]+)/); if (m) return m[1];
+      const id = raw.match(/\b((?:PL|OL|LL|UU|FL)[A-Za-z0-9_-]{10,})\b/); return id ? id[1] : "";
+    }
+    function playlistUrlFromId(listId, videoId) {
+      if (!listId) return "";
+      if (videoId) return "https://www.youtube.com/watch?v=" + videoId + "&list=" + listId;
+      return "https://www.youtube.com/playlist?list=" + listId;
+    }
+    function normalizePlaylistUrl(input) {
+      const raw = String(input || "").trim(); if (!raw) return "";
+      const cleaned = raw.replace("https://music.youtube.com", "https://www.youtube.com").replace("http://music.youtube.com", "https://www.youtube.com").replace("https://youtu.be/", "https://www.youtube.com/watch?v=");
+      const listId = playlistIdFromText(cleaned);
+      if (listId) { const vm = cleaned.match(/[?&]v=([A-Za-z0-9_-]{11})/); return playlistUrlFromId(listId, vm?.[1]); }
+      return cleaned.startsWith("http") ? cleaned : "";
+    }
+    function findPlaylistId(value, depth) {
+      if (depth === undefined) depth = 0;
+      if (value == null || depth > 6) return "";
+      if (typeof value === "string" || typeof value === "number") return playlistIdFromText(value);
+      if (Array.isArray(value)) { for (const item of value) { const f = findPlaylistId(item, depth + 1); if (f) return f; } return ""; }
+      if (typeof value === "object") {
+        for (const key of ["url", "playlistUrl", "playlist_url", "playlist", "playlistId", "playlist_id", "list", "id"]) {
+          if (value[key] != null) { const f = findPlaylistId(value[key], depth + 1); if (f) return f; }
+        }
+        for (const item of Object.values(value)) { const f = findPlaylistId(item, depth + 1); if (f) return f; }
+      }
+      return "";
+    }
+    function playlistUrlFromData(data, name) {
+      const listId = findPlaylistId(data) || playlistIdFromText(name);
+      const firstVideo = Array.isArray(data) ? data[0] : (data?.videos || data?.items || [])[0];
+      const videoId = firstVideo?.video_id || firstVideo?.id || firstVideo?.videoId || "";
+      return playlistUrlFromId(listId, videoId) || normalizePlaylistUrl(name);
+    }
+    function currentPlaylistUrl() {
+      const a = normalizePlaylistUrl(state.playlistUrl); if (a) return a;
+      const b = normalizePlaylistUrl(state.playlistName); if (b) return b;
+      for (const v of state.videos) { const f = normalizePlaylistUrl(v?.url || v?.playlistUrl || v?.playlist_id || ""); if (f) return f; }
+      const c = findPlaylistId(state.videos); if (c) return playlistUrlFromId(c, state.videos[0]?.video_id);
+      return "";
+    }
+
+    /* ── YouTube API ─────────────────────────────────────── */
+    function loadYouTubeApi() {
+      if (ytApiReady || window.YT?.Player) { ytApiReady = true; return; }
+      if (document.getElementById("yt-iframe-api")) return;
+      const tag = document.createElement("script"); tag.id = "yt-iframe-api"; tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
+    }
+    /* ── Queue ───────────────────────────────────────────── */
+    function visibleQueue() {
+      if (!state.hideGone) return state.queue.map((orig, step) => ({ orig, step }));
+      return state.queue
+        .map((orig, step) => ({ orig, step }))
+        .filter(item => !state.unavailable[state.videos[item.orig]?.video_id]);
+    }
+    function markUnavailable(videoId, reason) {
+      if (!videoId || state.unavailable[videoId]) return;
+      state.unavailable[videoId] = reason || "unavailable";
+      schedulePersist();
+      showGoneWarning();
+      renderQueue();
+      updateStatus();
+    }
+    function showGoneWarning() { if (state.warnDismissed) return; const n = Object.keys(state.unavailable).length; if (!n) return; $("warn-text").textContent = n + " video" + (n === 1 ? "" : "s") + " unavailable or deleted. Hidden from the queue."; $("warn-banner").classList.add("visible"); }
+    function shuffleArray(arr) { const r = [...arr]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
+    function usableIndexes() { return state.videos.map((v, i) => i).filter(i => !state.hideGone || !state.unavailable[state.videos[i].video_id]); }
+    function queueIds() { return state.queue.map(i => state.videos[i]?.video_id).filter(Boolean); }
+    function createQueue(preferIndex) {
+      const indexes = usableIndexes();
+      if (!indexes.length) { state.queue = state.videos.map((_, i) => i); state.queuePos = 0; return; }
+      if (state.shuffle) { const rest = indexes.filter(i => i !== preferIndex); state.queue = preferIndex != null && indexes.includes(preferIndex) ? [preferIndex, ...shuffleArray(rest)] : shuffleArray(indexes); }
+      else state.queue = indexes;
+      state.queuePos = preferIndex != null ? Math.max(0, state.queue.indexOf(preferIndex)) : 0;
+      ytPlaylistSig = "";
+    }
+    function currentOrigIndex() { return state.queue[state.queuePos]; }
+    function currentVideo() { return state.videos[currentOrigIndex()]; }
+    function nextQueuePos() { if (!state.queue.length) return -1; if (state.loopCurrent) return state.queuePos; return (state.queuePos + 1) % state.queue.length; }
+    function moveQueueItem(from, to) { if (from === to || from < 0 || to < 0) return; const cur = currentOrigIndex(); const [item] = state.queue.splice(from, 1); state.queue.splice(to, 0, item); state.queuePos = Math.max(0, state.queue.indexOf(cur)); ytPlaylistSig = ""; schedulePersist(); renderQueue(); renderNowPlaying(); }
+    function removeQueueItem(step) {
+      if (step < 0 || step >= state.queue.length) return; const was = step === state.queuePos; state.queue.splice(step, 1);
+      if (!state.queue.length) { state.queuePos = 0; renderQueue(); renderNowPlaying(); schedulePersist(); return; }
+      if (step < state.queuePos) state.queuePos -= 1; else if (state.queuePos >= state.queue.length) state.queuePos = 0;
+      ytPlaylistSig = ""; schedulePersist(); if (was) { state.currentTime = 0; playCurrent(true); } else { renderQueue(); renderNowPlaying(); }
+    }
+    function jumpToStep(step) { if (step < 0 || step >= state.queue.length) return; state.queuePos = step; state.currentTime = 0; playCurrent(true); }
+
+    /* ── Render ───────────────────────────────────────────── */
+    function updateStatus() {
+      const total = state.videos.length, gone = Object.keys(state.unavailable).length;
+      let text = total ? total + " videos" + (gone ? " · " + gone + " hidden" : "") + " · " + state.playlistName : "No playlist loaded";
+      if (state.fetchingTitles) text += " · fetching titles…";
+      $("status").textContent = text;
+    }
+    function renderPlaylistSelect() {
+      const sel = $("playlist-select"); const names = Object.keys(state.playlists); sel.innerHTML = "";
+      const cur = document.createElement("option"); cur.value = "__current"; cur.textContent = state.playlistName || "Current"; sel.appendChild(cur);
+      names.forEach(name => { if (name === state.playlistName) return; const o = document.createElement("option"); o.value = name; o.textContent = name; sel.appendChild(o); });
+      sel.value = "__current";
+    }
+    function renderNowPlaying() {
+      const video = currentVideo();
+      if (!video) { $("now-title").textContent = "Nothing playing"; $("now-sub").textContent = "Load a playlist to start"; $("now-art").removeAttribute("src"); $("btn-open-yt").disabled = true; return; }
+      const orig = currentOrigIndex();
+      $("now-title").textContent = video.title || "Video " + video.video_id;
+      $("now-sub").textContent = "Step " + (state.queuePos + 1) + " / " + state.queue.length + " · #" + (orig + 1) + (video.author ? " · " + video.author : "");
+      $("now-art").src = thumbUrl(video.video_id); $("btn-open-yt").disabled = false; updateMediaSession(video);
+    }
+    function renderQueue() {
+      const list = $("queue-list"), q = visibleQueue(), filter = state.search.trim().toLowerCase();
+      const shown = filter ? q.filter(item => { const v = state.videos[item.orig]; return (v?.title || "").toLowerCase().includes(filter) || String(item.orig + 1).includes(filter) || String(item.step + 1).includes(filter); }) : q;
+      $("queue-count").textContent = state.queue.length ? "Step " + (state.queuePos + 1) + " / " + state.queue.length : "Empty";
+      if (!state.videos.length) { list.innerHTML = '<div class="empty-queue"><strong>No playlist yet</strong>Use Save to keep a copy, or pick a playlist from the list.</div>'; return; }
+      if (!shown.length) { list.innerHTML = '<div class="empty-queue">' + (filter ? "No matches" : "Queue is empty") + "</div>"; return; }
+      const nextPos = nextQueuePos(); list.innerHTML = "";
+      shown.forEach(item => {
+        const v = state.videos[item.orig]; if (!v) return; const gone = !!state.unavailable[v.video_id];
+        const row = document.createElement("div"); row.className = "q-item"; row.draggable = true;
+        row.dataset.orig = String(item.orig); row.dataset.step = String(item.step);
+        if (item.step === state.queuePos) row.classList.add("playing");
+        else if (item.step === nextPos && !state.loopCurrent) row.classList.add("next-up");
+        if (gone) row.classList.add("gone");
+        row.innerHTML = '<div class="q-step">' + String(item.step + 1).padStart(2, "0") + '</div><img src="' + thumbUrl(v.video_id) + '" alt=""><div><div class="q-title">' + escapeHtml(v.title || v.video_id) + '</div><div class="q-orig">' + (gone ? "Unavailable · " : "") + "#" + (item.orig + 1) + "</div></div><button class=\"q-remove\" type=\"button\" title=\"Remove from queue\">×</button>";
+        row.addEventListener("click", ev => { if (ev.target.closest(".q-remove")) return; jumpToStep(item.step); });
+        row.querySelector(".q-remove").addEventListener("click", ev => { ev.stopPropagation(); removeQueueItem(item.step); });
+        row.addEventListener("dragstart", ev => { row.classList.add("dragging"); ev.dataTransfer.setData("text/plain", String(item.step)); });
+        row.addEventListener("dragend", () => row.classList.remove("dragging"));
+        row.addEventListener("dragover", ev => ev.preventDefault());
+        row.addEventListener("drop", ev => { ev.preventDefault(); moveQueueItem(Number(ev.dataTransfer.getData("text/plain")), item.step); });
+        list.appendChild(row);
+      });
+    }
+
+    /* ── Volume ──────────────────────────────────────────── */
+    function sliderToVolume(pos) { const t = Math.max(0, Math.min(1000, Number(pos))) / 1000; return Math.round(t <= 0.75 ? (t / 0.75) * 50 : 50 + ((t - 0.75) / 0.25) * 50); }
+    function volumeToSlider(vol) { const v = Math.max(0, Math.min(100, Number(vol))); return Math.round((v <= 50 ? (v / 50) * 0.75 : 0.75 + ((v - 50) / 50) * 0.25) * 1000); }
+    function setVolume(vol, fromMute) {
+      state.volume = Math.max(0, Math.min(100, Number(vol)));
+      if (!fromMute) { state.muted = state.volume === 0; if (state.volume > 0) state.lastVolume = state.volume; }
+      $("vol-label").textContent = Math.round(state.volume) + "%";
+      if (state.playerReady && state.player) { state.player.setVolume(state.volume); if (state.volume === 0) state.player.mute(); else state.player.unMute(); }
+      applyChrome(); schedulePersist();
+    }
+    function toggleMute() { if (state.muted || state.volume === 0) { state.muted = false; setVolume(state.lastVolume || 80, true); } else { state.lastVolume = state.volume || 80; state.muted = true; setVolume(0, true); } }
+
+    /* ── Player ──────────────────────────────────────────── */
+    function lockPlayerFocus() { const ifr = $("player-frame")?.querySelector("iframe"); if (ifr) { ifr.setAttribute("tabindex", "-1"); ifr.style.pointerEvents = "none"; } window.focus(); }
+    function seekBy(s) { if (!state.playerReady || !state.player) return; const t = Math.max(0, (state.currentTime || 0) + s); state.player.seekTo(t, true); state.currentTime = t; }
+    function applyPlaybackRate() { if (state.playerReady && state.player?.setPlaybackRate) try { state.player.setPlaybackRate(state.playbackRate); } catch (_) {} }
+
+    /* ── Media Session ──────────────────────────────────── */
+    function bindMediaSession() {
+      if (!("mediaSession" in navigator)) return;
+      const set = (a, fn) => { try { navigator.mediaSession.setActionHandler(a, fn); } catch (_) {} };
+      set("play", () => { if (state.playerReady && state.player) state.player.playVideo(); });
+      set("pause", () => { if (state.playerReady && state.player) state.player.pauseVideo(); });
+      set("previoustrack", () => playPrev()); set("nexttrack", () => playNext());
+      set("seekbackward", d => seekBy(-(d?.seekOffset || 10))); set("seekforward", d => seekBy(d?.seekOffset || 10));
+      set("seekto", d => { if (d?.seekTime == null || !state.playerReady) return; state.player.seekTo(d.seekTime, true); state.currentTime = d.seekTime; });
+      const v = currentVideo(); if (v) updateMediaSession(v); updatePositionState();
+    }
+    function ensureSessionAudio() { if (sessionAudio) return sessionAudio; sessionAudio = new Audio(); sessionAudio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"; sessionAudio.loop = true; sessionAudio.volume = 0.01; sessionAudio.setAttribute("playsinline", "true"); return sessionAudio; }
+    function syncSessionAudio() { const a = ensureSessionAudio(); if (state.playing) a.play().catch(() => {}); else a.pause(); }
+    function startMediaSessionKeeper() { bindMediaSession(); syncSessionAudio(); clearInterval(mediaSessionTimer); mediaSessionTimer = setInterval(() => { bindMediaSession(); syncSessionAudio(); }, 400); }
+    function updateMediaSession(video) {
+      if (!("mediaSession" in navigator) || !video) return;
+      try { navigator.mediaSession.metadata = new MediaMetadata({ title: video.title || video.video_id, artist: video.author || state.playlistName || "Playlist", artwork: [{ src: thumbUrl(video.video_id), sizes: "480x360", type: "image/jpeg" }] }); navigator.mediaSession.playbackState = state.playing ? "playing" : "paused"; } catch (_) {}
+    }
+    function updatePositionState() { if (!("mediaSession" in navigator) || !state.duration) return; try { navigator.mediaSession.setPositionState({ duration: state.duration, playbackRate: state.playbackRate || 1, position: Math.min(Math.max(0, state.currentTime), state.duration) }); } catch (_) {} }
+
+    /* ── Theme ───────────────────────────────────────────── */
+    function applyTheme() { const t = state.theme === "classic" ? "classic" : "modern"; document.documentElement.setAttribute("data-theme", t); const b = $("btn-theme"); if (b) b.textContent = t === "classic" ? "Modern" : "Classic"; }
+    function toggleTheme() { state.theme = state.theme === "classic" ? "modern" : "classic"; applyTheme(); schedulePersist(); }
+    function applyChrome() {
+      applyTheme();
+      $("btn-shuffle").classList.toggle("active", state.shuffle);
+      $("btn-loop").classList.toggle("active", state.loopCurrent);
+      $("btn-hide-gone").classList.toggle("active", state.hideGone);
+      $("btn-mute").classList.toggle("active", state.muted || state.volume === 0);
+      $("btn-mute").textContent = (state.muted || state.volume === 0) ? "Unmute" : "Mute";
+      $("volume").value = String(volumeToSlider(state.volume));
+      $("vol-label").textContent = Math.round(state.volume) + "%";
+      $("speed").value = String(state.playbackRate);
+      $("btn-play").textContent = state.playing ? "Pause" : "Play";
+      if ("mediaSession" in navigator) navigator.mediaSession.playbackState = state.playing ? "playing" : "paused";
+    }
+
+    /* ── Playback ────────────────────────────────────────── */
+    function cueCurrent() { loadCurrentVideo(false); }
+    function playCurrent(forceLoad) { loadCurrentVideo(true, forceLoad); }
+    function loadCurrentVideo(shouldPlay, forceLoad) {
+      const video = currentVideo(); if (!video) return;
+      pendingPlay = !!shouldPlay; pendingVideoId = video.video_id;
+      renderNowPlaying(); renderQueue(); updateStatus(); applyChrome(); schedulePersist();
+      if (!ytApiReady) { loadYouTubeApi(); return; }
+      if (!state.player) { createPlayer(video.video_id, shouldPlay); return; }
+      if (!state.playerReady) return;
+      state.player.setVolume(state.volume); applyPlaybackRate();
+      if (shouldPlay) { if (forceLoad !== false) syncQueueToYouTube(state.currentTime || 0); else state.player.playVideo(); return; }
+      ytPlaylistSig = video.video_id; state.player.cueVideoById({ videoId: video.video_id, startSeconds: state.currentTime || 0 });
+    }
+    function syncQueueToYouTube(startSeconds) {
+      if (startSeconds === undefined) startSeconds = 0;
+      if (!state.playerReady || !state.player) return;
+      const video = currentVideo(); if (!video?.video_id) return;
+      const sig = video.video_id;
+      if (ytPlaylistSig !== sig) { ytPlaylistSig = sig; state.player.loadVideoById({ videoId: video.video_id, startSeconds: startSeconds || 0 }); return; }
+      state.player.seekTo(startSeconds || 0, true); state.player.playVideo();
+    }
+    function createPlayer(videoId, shouldPlay) {
+      state.player = new YT.Player("player", {
+        width: "100%", height: "100%", videoId,
+        playerVars: { autoplay: 1, rel: 0, modestbranding: 1, playsinline: 1, disablekb: 1, start: Math.floor(state.currentTime || 0) },
+        events: {
+          onReady: event => {
+            state.playerReady = true; lockPlayerFocus(); startMediaSessionKeeper();
+            event.target.setVolume(state.volume); applyPlaybackRate();
+            const video = currentVideo(); ytPlaylistSig = video?.video_id || videoId || "";
+            if (pendingPlay || shouldPlay) syncQueueToYouTube(state.currentTime || 0);
+            else if (video?.video_id) event.target.cueVideoById({ videoId: video.video_id, startSeconds: state.currentTime || 0 });
+          },
+          onStateChange: event => {
+            if (event.data === YT.PlayerState.ENDED) { if (state.loopCurrent) { event.target.seekTo(0, true); event.target.playVideo(); } else handleTrackEnded(); }
+            if (event.data === YT.PlayerState.PLAYING) { state.playing = true; applyPlaybackRate(); applyChrome(); startTicker(); startMediaSessionKeeper(); capturePlayerMeta(); }
+            if (event.data === YT.PlayerState.PAUSED) { state.playing = false; applyChrome(); syncSessionAudio(); }
+          },
+          onError: event => { markUnavailable(currentVideo()?.video_id, "error " + event.data); playNext(); }
+        }
+      });
+    }
+    function startTicker() {
+      clearInterval(tickTimer);
+      tickTimer = setInterval(() => {
+        if (!state.playerReady || !state.player || state.seeking) return;
+        try { const t = state.player.getCurrentTime() || 0, d = state.player.getDuration() || 0; state.currentTime = t; state.duration = d; $("time-cur").textContent = formatTime(t); $("time-dur").textContent = formatTime(d); if (d > 0) $("progress").value = String(Math.round((t / d) * 1000)); updatePositionState(); capturePlayerMeta(); } catch (_) {}
+      }, 250);
+    }
+    function handleTrackEnded() { if (state.queuePos >= state.queue.length - 1) { createQueue(); state.queuePos = 0; state.currentTime = 0; playCurrent(true); return; } playNext(); }
+    function togglePlay() { if (!state.playerReady || !state.player) { playCurrent(true); return; } const st = state.player.getPlayerState(); if (st === YT.PlayerState.PLAYING) state.player.pauseVideo(); else state.player.playVideo(); }
+    function playNext() {
+      if (!state.queue.length) return;
+      if (state.loopCurrent) { state.currentTime = 0; playCurrent(true); return; }
+      state.queuePos += 1; if (state.queuePos >= state.queue.length) { createQueue(); state.queuePos = 0; }
+      state.currentTime = 0; playCurrent(true);
+    }
+    function playPrev() {
+      if (!state.queue.length) return;
+      if (state.currentTime > 3 && state.playerReady) { state.player.seekTo(0, true); state.currentTime = 0; return; }
+      state.queuePos -= 1; if (state.queuePos < 0) state.queuePos = state.queue.length - 1;
+      state.currentTime = 0; playCurrent(true);
+    }
+    function toggleShuffle() { state.shuffle = !state.shuffle; createQueue(currentOrigIndex()); applyChrome(); renderQueue(); renderNowPlaying(); schedulePersist(); showToast(state.shuffle ? "Shuffle on" : "Playing in playlist order"); }
+    function capturePlayerMeta() {
+      if (!state.playerReady || !state.player?.getVideoData) return; const video = currentVideo(); if (!video) return;
+      let info = null; try { info = state.player.getVideoData(); } catch (_) { return; }
+      if (!info?.video_id || info.video_id !== video.video_id) return;
+      const title = String(info.title || "").trim(), author = String(info.author || "").trim();
+      let changed = false;
+      if (title && video.title !== title) { video.title = title; changed = true; }
+      if (author && video.author !== author) { video.author = author; changed = true; }
+      if (!changed) return;
+      if (video.video_id) { state.titleCache[video.video_id] = { title: video.title || "", author: video.author || "" }; saveTitleCache(); }
+      schedulePersist(); renderNowPlaying(); renderQueue(); updateMediaSession(video);
+    }
+
+    /* ── Playlist loading ────────────────────────────────── */
+    function normalizeVideos(data) {
+      const list = Array.isArray(data) ? data : (data.videos || data.items || []);
+      return list.map((item, i) => ({ video_id: item.video_id || item.id || item.videoId || item.snippet?.resourceId?.videoId || "", title: "", author: "", url: item.url || item.link || item.webpage_url || "" })).filter(v => v.video_id);
+    }
+    function applyPlaylist(data, name, restoreQueue) {
+      const videos = normalizeVideos(data);
+      if (!videos.length) { showToast("That file did not contain any videos."); return false; }
+      state.videos = videos; state.playlistName = name || "Playlist";
+      state.playlistUrl = playlistUrlFromData(data, name) || playlistUrlFromData(videos, name) || "";
+      state.unavailable = {}; state.warnDismissed = false; $("warn-banner").classList.remove("visible");
+      if (!restoreQueue || !state.queue.length) createQueue();
+      state.queue = state.queue.filter(i => i >= 0 && i < state.videos.length);
+      if (!state.queue.length) createQueue();
+      if (state.queuePos >= state.queue.length) state.queuePos = 0;
+      applyTitleCache(); updateStatus(); renderPlaylistSelect(); renderQueue(); renderNowPlaying(); schedulePersist();
+      return true;
+    }
+
+    /* ── Saved playlists ────────────────────────────────── */
+    function saveNamedPlaylist() {
+      const name = $("save-name").value.trim(); if (!name) return;
+      if (!state.videos.length) { showToast("Load a playlist before saving."); return; }
+      if (state.playlists[name] && !window.confirm('Replace the saved playlist named "' + name + '"?')) return;
+      state.playlists[name] = { videos: state.videos, url: state.playlistUrl || "" };
+      state.playlistName = name; $("save-dialog").close(); renderPlaylistSelect(); updateStatus(); persist(); showToast('Saved "' + name + '"');
+    }
+    function loadNamedPlaylist(name) { const pl = state.playlists[name]; if (!pl) return; applyPlaylist(pl, name); playCurrent(true); fetchMissingTitles(); }
+    function deleteNamedPlaylist() {
+      const name = state.playlistName; if (!name || !state.playlists[name]) { showToast("That playlist is not in saved lists."); return; }
+      if (!window.confirm('Delete saved playlist "' + name + '"?')) return;
+      delete state.playlists[name]; persist(); renderPlaylistSelect(); showToast('Deleted "' + name + '"');
+    }
+
+    /* ── UI bindings ─────────────────────────────────────── */
+    function bindUi() {
+      $("btn-prev").onclick = playPrev; $("btn-next").onclick = playNext; $("btn-play").onclick = togglePlay;
+      $("btn-shuffle").onclick = toggleShuffle;
+      $("btn-loop").onclick = () => { state.loopCurrent = !state.loopCurrent; applyChrome(); renderQueue(); schedulePersist(); };
+      $("btn-hide-gone").onclick = () => { state.hideGone = !state.hideGone; applyChrome(); renderQueue(); schedulePersist(); };
+      $("btn-fullscreen").onclick = () => { const el = $("player-frame"); if (!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.(); };
+      $("btn-mute").onclick = toggleMute;
+      $("btn-open-yt").onclick = () => { const v = currentVideo(); if (v) window.open(youtubeUrl(v.video_id), "_blank", "noopener"); };
+      $("btn-delete-pl").onclick = deleteNamedPlaylist;
+      $("btn-theme").onclick = toggleTheme;
+      $("speed").onchange = ev => { state.playbackRate = Number(ev.target.value) || 1; applyPlaybackRate(); schedulePersist(); };
+      $("volume").oninput = ev => setVolume(sliderToVolume(ev.target.value));
+      $("progress").onmousedown = () => { state.seeking = true; };
+      $("progress").onmouseup = () => { state.seeking = false; };
+      $("progress").onchange = ev => { if (!state.duration) return; const t = (Number(ev.target.value) / 1000) * state.duration; state.currentTime = t; if (state.playerReady) state.player.seekTo(t, true); schedulePersist(); };
+      $("search").oninput = ev => { state.search = ev.target.value; renderQueue(); };
+      $("warn-dismiss").onclick = () => { state.warnDismissed = true; $("warn-banner").classList.remove("visible"); };
+      $("btn-save-as").onclick = () => { $("save-name").value = state.playlistName || ""; $("save-dialog").showModal(); };
+      $("save-cancel").onclick = () => $("save-dialog").close();
+      $("save-ok").onclick = saveNamedPlaylist;
+      $("playlist-select").onchange = ev => { if (ev.target.value !== "__current") loadNamedPlaylist(ev.target.value); };
+      $("player-frame").addEventListener("click", () => { lockPlayerFocus(); togglePlay(); });
+      document.addEventListener("keydown", ev => {
+        const tag = ev.target.tagName; if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || ev.target.isContentEditable) return;
+        const prev = ev.key === "F7" || ev.code === "F7" || ev.key === "MediaTrackPrevious";
+        const next = ev.key === "F9" || ev.code === "F9" || ev.key === "MediaTrackNext";
+        const play = ev.key === "F8" || ev.code === "F8" || ev.key === "MediaPlayPause" || ev.code === "Space";
+        if (prev || next || play) { ev.preventDefault(); ev.stopPropagation(); lockPlayerFocus(); if (prev) playPrev(); if (next) playNext(); if (play) togglePlay(); return; }
+        if (ev.key === "ArrowLeft") { ev.preventDefault(); seekBy(-10); }
+        if (ev.key === "ArrowRight") { ev.preventDefault(); seekBy(10); }
+        if (ev.key === "ArrowUp") { ev.preventDefault(); setVolume(state.volume + 5); }
+        if (ev.key === "ArrowDown") { ev.preventDefault(); setVolume(state.volume - 5); }
+        if (ev.key === "m" || ev.key === "M") { ev.preventDefault(); toggleMute(); }
+        if (ev.key === "l" || ev.key === "L") { state.loopCurrent = !state.loopCurrent; applyChrome(); renderQueue(); schedulePersist(); }
+        if (ev.key === "s" || ev.key === "S") toggleShuffle();
+      }, true);
+      window.addEventListener("beforeunload", persist);
+    }
+
+    window.onYouTubeIframeAPIReady = function () { ytApiReady = true; if (pendingVideoId || currentVideo()) playCurrent(true); };
+    function init() {
+      loadStore();
+      loadTitleCache();
+      forceTasklikeStart();
+      bindUi();
+      applyChrome();
+      renderPlaylistSelect();
+      restoreProgressUi();
+      loadYouTubeApi();
+      applyTitleCache();
+      updateStatus();
+      renderQueue();
+      renderNowPlaying();
+      showGoneWarning();
+      playCurrent(true);
+      fetchMissingTitles();
+    }
+    init();
+  </script>
+</body>
+</html>

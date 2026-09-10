@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link id="favicon" rel="icon" type="image/svg+xml">
+<title>YouTubeServer Project Traveler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg: #0a0c10;
+        --bg-elevated: rgba(255,255,255,0.025);
+        --card: rgba(255,255,255,0.035);
+        --card-hover: rgba(255,255,255,0.07);
+        --border: rgba(255,255,255,0.06);
+        --border-hover: rgba(255,255,255,0.15);
+        --fg: #e8eaed;
+        --fg-dim: #b0b5c3;
+        --fg-muted: #5c6278;
+        --accent: #e2a84b;
+        --accent-glow: rgba(226,168,75,0.12);
+        --accent-dim: #c4913a;
+        --green: #34d399;
+        --green-glow: rgba(52,211,153,0.25);
+        --red: #fb7185;
+        --red-glow: rgba(251,113,133,0.2);
+        --yellow: #fbbf24;
+        --type-main: #e2a84b;
+        --type-folder: #818cf8;
+        --type-old: #38bdf8;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: 'Space Grotesk', sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+    .bg-layer { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+    .blob { position: absolute; border-radius: 50%; filter: blur(130px); opacity: 0.3; animation: blobDrift 22s ease-in-out infinite alternate; }
+    .blob--1 { width: 520px; height: 520px; background: radial-gradient(circle, #e2a84b 0%, transparent 70%); top: -12%; left: -10%; animation-duration: 24s; }
+    .blob--2 { width: 420px; height: 420px; background: radial-gradient(circle, #1e5a3a 0%, transparent 70%); bottom: -14%; right: -6%; animation-duration: 28s; animation-delay: -6s; }
+    .blob--3 { width: 280px; height: 280px; background: radial-gradient(circle, #3b2d6e 0%, transparent 70%); top: 45%; left: 58%; animation-duration: 19s; animation-delay: -12s; }
+    @keyframes blobDrift {
+        0% { transform: translate(0, 0) scale(1); }
+        33% { transform: translate(45px, -35px) scale(1.1); }
+        66% { transform: translate(-25px, 55px) scale(0.93); }
+        100% { transform: translate(35px, 25px) scale(1.05); }
+    }
+    .dot-grid { position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0.025; background-image: radial-gradient(circle, #fff 1px, transparent 1px); background-size: 32px 32px; }
+    .noise { position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0.025; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); background-repeat: repeat; background-size: 256px; }
+    .content { position: relative; z-index: 2; max-width: 980px; margin: 0 auto; padding: 56px 24px 80px; }
+    .header { margin-bottom: 40px; }
+    .header__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .header__left { flex: 1; min-width: 240px; }
+    .header__badge { display: inline-flex; align-items: center; gap: 7px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); background: var(--accent-glow); border: 1px solid rgba(226,168,75,0.18); padding: 5px 14px; border-radius: 100px; margin-bottom: 18px; }
+    .header__badge .pulse-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52,211,153,0.5); }
+        50% { opacity: 0.6; box-shadow: 0 0 0 7px rgba(52,211,153,0); }
+    }
+    .header__title { font-size: clamp(30px, 5vw, 50px); font-weight: 700; line-height: 1.08; letter-spacing: -0.035em; margin-bottom: 10px; }
+    .header__title .hl { color: var(--accent); }
+    .header__sub { font-size: 15px; color: var(--fg-muted); font-weight: 300; max-width: 440px; line-height: 1.6; }
+    .search-wrap { position: relative; width: 260px; flex-shrink: 0; margin-top: 28px; }
+    .search-wrap__icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--fg-muted); pointer-events: none; transition: color 0.2s; }
+    .search-wrap__icon svg { width: 16px; height: 16px; }
+    .search-input { width: 100%; padding: 10px 14px 10px 40px; font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; color: var(--fg); background: var(--card); border: 1px solid var(--border); border-radius: 10px; outline: none; transition: border-color 0.25s, box-shadow 0.25s, background 0.25s; }
+    .search-input::placeholder { color: var(--fg-muted); }
+    .search-input:focus { border-color: rgba(226,168,75,0.35); box-shadow: 0 0 0 3px var(--accent-glow); background: rgba(255,255,255,0.05); }
+    .search-clear { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border-radius: 6px; background: rgba(255,255,255,0.06); border: none; color: var(--fg-muted); cursor: pointer; display: none; align-items: center; justify-content: center; font-size: 14px; line-height: 1; }
+    .search-clear.visible { display: flex; }
+    .toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+    .filter-btn { font-family: 'Space Grotesk', sans-serif; font-size: 12.5px; font-weight: 500; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--fg-muted); cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .filter-btn:hover { background: var(--card-hover); color: var(--fg-dim); border-color: var(--border-hover); }
+    .filter-btn.active { background: rgba(226,168,75,0.1); color: var(--accent); border-color: rgba(226,168,75,0.25); }
+    .filter-btn__count { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.6; }
+    .toolbar__spacer { flex: 1; }
+    .toolbar__clock { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--fg-muted); display: flex; align-items: center; gap: 7px; }
+    .toolbar__clock .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); animation: pulse 3s ease-in-out infinite; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; }
+    .card { position: relative; display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; text-decoration: none; color: inherit; transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; opacity: 0; transform: translateY(12px); }
+    .card::after { content: ''; position: absolute; inset: 0; border-radius: 12px; background: linear-gradient(135deg, rgba(226,168,75,0.04) 0%, transparent 50%); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .card:hover { background: var(--card-hover); border-color: var(--border-hover); transform: translateY(-1px); box-shadow: 0 6px 28px rgba(0,0,0,0.35), 0 0 0 1px var(--border-hover); }
+    .card:hover::after { opacity: 1; }
+    .card.hidden { display: none; }
+    .card.visible { animation: cardIn 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+    @keyframes cardIn { to { opacity: 1; transform: translateY(0); } }
+    .card__icon { position: relative; width: 42px; height: 42px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+    .card__icon img { width: 24px; height: 24px; object-fit: contain; border-radius: 4px; }
+    .card__status { position: absolute; bottom: -1px; right: -1px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--bg); }
+    .card__status--checking { background: var(--fg-muted); }
+    .card__status--up { background: var(--green); box-shadow: 0 0 6px var(--green-glow); }
+    .card__status--down { background: var(--red); box-shadow: 0 0 6px var(--red-glow); }
+    .card__body { flex: 1; min-width: 0; }
+    .card__name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+    .card__name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card__type { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 7px; border-radius: 5px; flex-shrink: 0; }
+    .card__type--main { color: var(--type-main); background: rgba(226,168,75,0.1); border: 1px solid rgba(226,168,75,0.15); }
+    .card__type--old { color: var(--type-old); background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.15); }
+    .card__type--folder { color: var(--type-folder); background: rgba(129,140,248,0.1); border: 1px solid rgba(129,140,248,0.15); }
+    .card__path { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.65; }
+    .card__arrow { flex-shrink: 0; color: var(--fg-muted); opacity: 0; transform: translateX(-5px); transition: all 0.22s; }
+    .card:hover .card__arrow { opacity: 0.7; transform: translateX(0); }
+    .empty { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--fg-muted); }
+    .footer { margin-top: 52px; text-align: center; font-size: 11px; color: var(--fg-muted); opacity: 0.4; font-family: 'JetBrains Mono', monospace; }
+    @media (max-width: 640px) {
+        .content { padding: 32px 14px 56px; }
+        .grid { grid-template-columns: 1fr; }
+        .header__row { flex-direction: column; }
+        .search-wrap { width: 100%; margin-top: 16px; }
+        .toolbar__clock { display: none; }
+    }
+</style>
+</head>
+<body>
+<div class="bg-layer" aria-hidden="true">
+    <div class="blob blob--1"></div>
+    <div class="blob blob--2"></div>
+    <div class="blob blob--3"></div>
+</div>
+<div class="dot-grid" aria-hidden="true"></div>
+<div class="noise" aria-hidden="true"></div>
+<main class="content">
+    <header class="header">
+        <div class="header__row">
+            <div class="header__left">
+                <div class="header__badge">
+                    <span class="pulse-dot"></span>
+                    <div id="port-display"></div>
+                </div>
+                <h1 class="header__title">Project <span class="hl">Traveler</span></h1>
+                <p class="header__sub">Quick-launch dashboard for YouTubeServer projects on your local server.</p>
+            </div>
+            <div class="search-wrap">
+                <span class="search-wrap__icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.3-4.3"/>
+                    </svg>
+                </span>
+                <input type="text" class="search-input" id="searchInput" placeholder="Filter projects..." aria-label="Filter projects">
+                <button class="search-clear" id="searchClear" aria-label="Clear search">&times;</button>
+            </div>
+        </div>
+    </header>
+    <div class="toolbar" role="toolbar" aria-label="Filter by type">
+        <button class="filter-btn active" data-filter="all">All <span class="filter-btn__count" id="countAll"></span></button>
+        <button class="filter-btn" data-filter="Main">Main <span class="filter-btn__count" id="countMain"></span></button>
+        <button class="filter-btn" data-filter="Old">Old <span class="filter-btn__count" id="countOld"></span></button>
+        <button class="filter-btn" data-filter="Folder">Folder <span class="filter-btn__count" id="countFolder"></span></button>
+        <div class="toolbar__spacer"></div>
+        <div class="toolbar__clock"><span class="dot"></span><span id="clock"></span></div>
+    </div>
+    <div class="grid" id="grid" role="list"></div>
+    <div class="empty" id="empty" style="display:none">
+        <div class="empty__icon">&#8709;</div>
+        <div class="empty__text">No projects match your filter.</div>
+    </div>
+    <footer class="footer">YouTubeServer Project Traveler &middot; All services local</footer>
+</main>
+<script>
+var PORT_NUMBER = 8081;
+var portDiv = document.getElementById('port-display');
+portDiv.textContent = `Localhost:${PORT_NUMBER}`;
+
+const projects = [
+    { name: "Maintained (V4)", url: "http://localhost:8081/Main.html", icon: "http://localhost:8081/Icons/MainIcon.svg", type: "Main" },
+    { name: "Straight (V2)", url: "http://localhost:8081/Straight.html", icon: "http://localhost:8081/Icons/BlueIcon.svg", type: "Main" },
+    { name: "TestFile", url: "http://localhost:8081/TestFile.html", icon: "http://localhost:8081/Icons/RedIcon.svg", type: "Old" }
+];
+
+const FALLBACK_ICON = "http://localhost:8081/Icons/MainIcon.svg";
+const favicon = document.getElementById("favicon");
+favicon.href = FALLBACK_ICON;
+favicon.type = "image/svg+xml";
+favicon.rel = "icon";
+
+const TYPE_ORDER = ["Main", "Old", "Folder"];
+projects.sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type));
+
+const grid = document.getElementById("grid");
+const emptyEl = document.getElementById("empty");
+const cardEls = [];
+
+const counts = { all: projects.length, Main: 0, Old: 0, Folder: 0 };
+projects.forEach(p => { if (counts[p.type] !== undefined) counts[p.type]++; });
+document.getElementById("countAll").textContent = counts.all;
+document.getElementById("countMain").textContent = counts.Main;
+document.getElementById("countOld").textContent = counts.Old;
+document.getElementById("countFolder").textContent = counts.Folder;
+
+function escHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+projects.forEach((p) => {
+    const a = document.createElement("a");
+    a.href = p.url;
+    a.className = "card";
+    a.role = "listitem";
+    a.dataset.type = p.type;
+    a.dataset.name = p.name.toLowerCase();
+    try { a.dataset.path = new URL(p.url).pathname; } catch { a.dataset.path = p.url; }
+    a.setAttribute("aria-label", "Open " + p.name);
+    a.innerHTML = `
+        <div class="card__icon">
+            <img src="${p.icon || FALLBACK_ICON}" alt="" loading="lazy">
+            <span class="card__status card__status--checking" data-url="${p.url}"></span>
+        </div>
+        <div class="card__body">
+            <div class="card__name-row">
+                <span class="card__name">${escHtml(p.name)}</span>
+                <span class="card__type card__type--${p.type.toLowerCase()}">${escHtml(p.type)}</span>
+            </div>
+            <div class="card__path">${escHtml(a.dataset.path)}</div>
+        </div>
+        <span class="card__arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+            </svg>
+        </span>`;
+    const img = a.querySelector("img");
+    img.onerror = () => { img.onerror = null; img.src = FALLBACK_ICON; };
+    grid.appendChild(a);
+    cardEls.push(a);
+});
+
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            const el = entry.target;
+            el.style.animationDelay = `${cardEls.indexOf(el) * 50}ms`;
+            el.classList.add("visible");
+            observer.unobserve(el);
+        }
+    });
+}, { threshold: 0.05 });
+cardEls.forEach(c => observer.observe(c));
+
+const searchInput = document.getElementById("searchInput");
+const searchClear = document.getElementById("searchClear");
+searchInput.addEventListener("input", () => {
+    searchClear.classList.toggle("visible", searchInput.value.trim().length > 0);
+    applyFilters();
+});
+searchClear.addEventListener("click", () => {
+    searchInput.value = "";
+    searchClear.classList.remove("visible");
+    applyFilters();
+    searchInput.focus();
+});
+
+let activeFilter = "all";
+document.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeFilter = btn.dataset.filter;
+        applyFilters();
+    });
+});
+
+function applyFilters() {
+    const q = searchInput.value.trim().toLowerCase();
+    let visibleCount = 0;
+    cardEls.forEach(card => {
+        const matchType = activeFilter === "all" || card.dataset.type === activeFilter;
+        const matchSearch = !q || card.dataset.name.includes(q) || card.dataset.path.includes(q) || card.dataset.type.toLowerCase().includes(q);
+        const show = matchType && matchSearch;
+        card.classList.toggle("hidden", !show);
+        if (show) visibleCount++;
+    });
+    emptyEl.style.display = visibleCount === 0 ? "block" : "none";
+}
+
+const clockEl = document.getElementById("clock");
+function tick() {
+    const d = new Date();
+    clockEl.textContent = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") + ":" + String(d.getSeconds()).padStart(2, "0");
+}
+tick();
+setInterval(tick, 1000);
+
+function pingStatus(dot) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    fetch(dot.dataset.url, { method: "HEAD", mode: "no-cors", signal: controller.signal })
+        .then(() => { dot.classList.remove("card__status--checking", "card__status--down"); dot.classList.add("card__status--up"); })
+        .catch(() => { dot.classList.remove("card__status--checking", "card__status--up"); dot.classList.add("card__status--down"); })
+        .finally(() => clearTimeout(timer));
+}
+document.querySelectorAll(".card__status--checking").forEach((dot, i) => setTimeout(() => pingStatus(dot), 400 + i * 200));
+setInterval(() => {
+    document.querySelectorAll(".card__status").forEach(dot => {
+        dot.classList.remove("card__status--up", "card__status--down");
+        dot.classList.add("card__status--checking");
+        pingStatus(dot);
+    });
+}, 30000);
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "/" && document.activeElement !== searchInput) { e.preventDefault(); searchInput.focus(); }
+    if (e.key === "Escape" && document.activeElement === searchInput) searchInput.blur();
+});
+</script>
+</body>
+</html>
