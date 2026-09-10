@@ -73,16 +73,18 @@ The YouTube embed player must be allowed to load.
 
 ## Project Structure
 
-├── Icons/
-│   ├── BlueIcon.svg
-│   ├── GreenIcon.svg
-│   └── RedIcon.svg
-├── Master/
-│   ├── Main.html
-│   └── Straight.html
-├── LICENSE
-├── README.md
-└── index.html
+index.html
+READEME.md
+LICENSE
+
+Master/
+Main.html
+Straight.html
+
+Icons/
+BlueIcon.svg
+GreenIcon.svg
+RedIcon.svg
 
 ## Usage Structure
 You may copy, use, edit, change, modify, and republish this project in any way you want.
