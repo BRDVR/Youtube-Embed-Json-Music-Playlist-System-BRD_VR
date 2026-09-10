@@ -129,10 +129,10 @@
             <div class="header__left">
                 <div class="header__badge">
                     <span class="pulse-dot"></span>
-                    <div id="port-display"></div>
-                </div>
+                        GitHub Pages
+                            </div>
                 <h1 class="header__title">Project <span class="hl">Traveler</span></h1>
-                <p class="header__sub">Quick-launch dashboard for YouTubeServer projects on your local server.</p>
+                <p class="header__sub">Quick-launch dashboard for the YouTubeServer project.</p>
             </div>
             <div class="search-wrap">
                 <span class="search-wrap__icon">
@@ -159,20 +159,15 @@
         <div class="empty__icon">&#8709;</div>
         <div class="empty__text">No projects match your filter.</div>
     </div>
-    <footer class="footer">YouTubeServer Project Traveler &middot; All services local</footer>
+    <footer class="footer">YouTubeServer Project Traveler &middot; GitHub Pages</footer>
 </main>
 <script>
-var PORT_NUMBER = 8081;
-var portDiv = document.getElementById('port-display');
-portDiv.textContent = `Localhost:${PORT_NUMBER}`;
-
 const projects = [
-    { name: "Maintained (V4)", url: "http://localhost:8081/Main.html", icon: "http://localhost:8081/Icons/MainIcon.svg", type: "Main" },
-    { name: "Straight (V2)", url: "http://localhost:8081/Straight.html", icon: "http://localhost:8081/Icons/BlueIcon.svg", type: "Main" },
-    { name: "TestFile", url: "http://localhost:8081/TestFile.html", icon: "http://localhost:8081/Icons/RedIcon.svg", type: "Old" }
+    { name: "Maintained (V4)", url: "Master/Main.html", icon: "Icons/GreenIcon.svg", type: "Main" },
+    { name: "Straight (V2)", url: "Master/Straight.html", icon: "Icons/BlueIcon.svg", type: "Main" }
 ];
 
-const FALLBACK_ICON = "http://localhost:8081/Icons/MainIcon.svg";
+const FALLBACK_ICON = "Icons/GreenIcon.svg";
 const favicon = document.getElementById("favicon");
 favicon.href = FALLBACK_ICON;
 favicon.type = "image/svg+xml";
@@ -208,7 +203,6 @@ projects.forEach((p) => {
     a.innerHTML = `
         <div class="card__icon">
             <img src="${p.icon || FALLBACK_ICON}" alt="" loading="lazy">
-            <span class="card__status card__status--checking" data-url="${p.url}"></span>
         </div>
         <div class="card__body">
             <div class="card__name-row">
@@ -283,23 +277,6 @@ function tick() {
 }
 tick();
 setInterval(tick, 1000);
-
-function pingStatus(dot) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3000);
-    fetch(dot.dataset.url, { method: "HEAD", mode: "no-cors", signal: controller.signal })
-        .then(() => { dot.classList.remove("card__status--checking", "card__status--down"); dot.classList.add("card__status--up"); })
-        .catch(() => { dot.classList.remove("card__status--checking", "card__status--up"); dot.classList.add("card__status--down"); })
-        .finally(() => clearTimeout(timer));
-}
-document.querySelectorAll(".card__status--checking").forEach((dot, i) => setTimeout(() => pingStatus(dot), 400 + i * 200));
-setInterval(() => {
-    document.querySelectorAll(".card__status").forEach(dot => {
-        dot.classList.remove("card__status--up", "card__status--down");
-        dot.classList.add("card__status--checking");
-        pingStatus(dot);
-    });
-}, 30000);
 
 document.addEventListener("keydown", (e) => {
     if (e.key === "/" && document.activeElement !== searchInput) { e.preventDefault(); searchInput.focus(); }
