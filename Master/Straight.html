@@ -379,7 +379,7 @@
     const STORE_KEY = "ytPlaylistPlayer.straight.v1";
     const TITLE_CACHE_KEY = "ytPlaylistPlayer.titles.straight.v1";
     const SAVE_FORMAT = "playlist-player-v4";
-    const DEFAULT_PLAYLIST_NAME = "Tasklike";
+    const FirstPlaylistToPlay = "Simple";
     const BUILTIN_SAVE = {
   "_format": "playlist-player-v4",
   "settings": {
@@ -1457,13 +1457,13 @@
       }
     }
 
-    function forceTasklikeStart() {
+    function startList() {
       seedBuiltinPlaylists();
-      const blk = (BUILTIN_SAVE.saved && BUILTIN_SAVE.saved.Tasklike) || BUILTIN_SAVE.current;
+      const blk = (BUILTIN_SAVE.saved && BUILTIN_SAVE.saved[FirstPlaylistToPlay]) || BUILTIN_SAVE.current;
       restoreBlock(blk);
       state.shuffle = true;
       state.loopCurrent = false;
-      state.playlistName = DEFAULT_PLAYLIST_NAME;
+      state.playlistName = FirstPlaylistToPlay;
       createQueue();
       state.queuePos = 0;
       state.currentTime = 0;
@@ -1831,7 +1831,7 @@
     function init() {
       loadStore();
       loadTitleCache();
-      forceTasklikeStart();
+      startList();
       bindUi();
       applyChrome();
       renderPlaylistSelect();
