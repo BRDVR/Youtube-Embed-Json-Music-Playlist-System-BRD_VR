@@ -391,7 +391,6 @@
   <div id="toast" role="status"></div>
 
   <script>
-    const DEFAULT_JSON = "playlist_PLCkc8vHfqcGqDrApY5s2dahvJFr5NCdRH_data.json";
     const STORE_KEY = "ytPlaylistPlayer.v4";
     const TITLE_CACHE_KEY = "ytPlaylistPlayer.titles.v4";
     const EXTRACTOR_URL = "https://seotools.davidbreder.com/youtube-playlist";
@@ -935,9 +934,6 @@
         url: item.url || item.link || item.webpage_url || ""
       })).filter(v => v.video_id);
     }
-    async function loadDefaultJson() {
-      try { const r = await fetch(DEFAULT_JSON); if (!r.ok) throw new Error(r.status); const d = await r.json(); applyPlaylist(d, DEFAULT_JSON); return true; } catch (_) { return false; }
-    }
     const KNOWN_PLAYLIST_NAMES = {
       "PLCkc8vHfqcGqDrApY5s2dahvJFr5NCdRH": "Tasklike",
       "PLJwylQo4S1r-jNert4JUPPc-OjZV4Es9B": "Simple",
@@ -1024,7 +1020,7 @@
       $("btn-delete-pl").onclick = deleteNamedPlaylist;
       $("btn-extract").onclick = handleExtractClick;
       $("btn-theme").onclick = toggleTheme;
-      $("btn-project").onclick = () => { window.location.href = "http://localhost:8081/Index.html"; };
+      $("btn-project").onclick = () => { window.location.href = "../index.html"; };
       revealProjectPageIfLocal();
       $("extract-cancel").onclick = () => $("extract-dialog").close();
       $("extract-ok").onclick = async () => { await copyThenOpenExtractor($("extract-url").value); $("extract-dialog").close(); };
@@ -1081,13 +1077,28 @@
     window.onYouTubeIframeAPIReady = function () { ytApiReady = true; if (pendingVideoId || currentVideo()) playCurrent(true); };
     function revealProjectPageIfLocal() { const b = $("btn-project"); if (b) b.hidden = !/8081/.test(location.host); }
 
-    async function init() {
-      loadStore(); loadTitleCache(); bindUi(); applyChrome(); renderPlaylistSelect(); restoreProgressUi(); loadYouTubeApi();
-      if (!state.videos.length) {
-        const loaded = await loadDefaultJson();
-        if (!loaded) { $("status").textContent = "Import a JSON playlist to start"; renderQueue(); }
-      } else { applyTitleCache(); updateStatus(); renderQueue(); renderNowPlaying(); showGoneWarning(); }
-      if (state.videos.length) { playCurrent(true); fetchMissingTitles(); }
+    function init() {
+      loadStore();
+      loadTitleCache();
+      bindUi();
+      applyChrome();
+      renderPlaylistSelect();
+      restoreProgressUi();
+      loadYouTubeApi();
+    
+      if (state.videos.length) {
+        applyTitleCache();
+        updateStatus();
+        renderQueue();
+        renderNowPlaying();
+        showGoneWarning();
+        playCurrent(true);
+        fetchMissingTitles();
+      } else {
+        $("status").textContent = "No saved playlist loaded";
+        renderQueue();
+        renderNowPlaying();
+      }
     }
     init();
   </script>
