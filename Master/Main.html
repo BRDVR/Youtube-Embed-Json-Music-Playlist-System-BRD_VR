@@ -20,7 +20,7 @@
       --text-2: #c5ccd6;
       --muted: #8b95a3;
       --teal: #3dffb8;
-      --teal-soft: rgba(61, 255, 184, .14);
+      --teal-soft: rgba(61, 255, 184, .14); 
       --next: #d6ff6a;
       --next-soft: rgba(214, 255, 106, .12);
       --warn-bg: #2a2412;
@@ -301,7 +301,7 @@
     <button id="btn-hide-gone" class="active">Hide gone</button>
     <button id="btn-fullscreen">Fullscreen</button>
     <button id="btn-theme" title="Switch between modern and classic look">Classic</button>
-    <button id="btn-project" title="Open Index.html" hidden>Project Page</button>
+    <button id="btn-project" title="Open Index.html">Project Page</button>
     <div class="search-wrap">
       <span>Search</span>
       <input id="search" type="search" placeholder="Title or number" autocomplete="off">
@@ -1021,7 +1021,6 @@
       $("btn-extract").onclick = handleExtractClick;
       $("btn-theme").onclick = toggleTheme;
       $("btn-project").onclick = () => { window.location.href = "../index.html"; };
-      revealProjectPageIfLocal();
       $("extract-cancel").onclick = () => $("extract-dialog").close();
       $("extract-ok").onclick = async () => { await copyThenOpenExtractor($("extract-url").value); $("extract-dialog").close(); };
       $("speed").onchange = ev => { state.playbackRate = Number(ev.target.value) || 1; applyPlaybackRate(); schedulePersist(); };
@@ -1075,8 +1074,7 @@
     }
 
     window.onYouTubeIframeAPIReady = function () { ytApiReady = true; if (pendingVideoId || currentVideo()) playCurrent(true); };
-    function revealProjectPageIfLocal() { const b = $("btn-project"); if (b) b.hidden = !/8081/.test(location.host); }
-
+  
     function init() {
       loadStore();
       loadTitleCache();
