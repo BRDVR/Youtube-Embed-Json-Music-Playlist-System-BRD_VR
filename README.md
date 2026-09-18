@@ -1,94 +1,106 @@
 # YouTube Playlist Player
 
-A lightweight YouTube playlist player with two versions:
+A small static YouTube playlist player. Videos stay on YouTube. This project only embeds them.
 
-- Main — full playlist management using JSON files and browser saves.
-- Straight — a simplified, self-contained version with built-in playlists,
-  designed for devices where file management isn't practical.
+Two apps live in `Master/`:
 
-## Quick Start
+- **Main (V5)** — import / export JSON, named saves, queue, shuffle, loop
+- **Straight (V3)** — playlists baked into the page for VR browsers and machines with no file picker
 
-The easiest way to use the project is through GitHub Pages:
+Live site: [https://brdvr.github.io/Youtube-Embed-Json-Music-Playlist-System-BRD_VR/](https://brdvr.github.io/Youtube-Embed-Json-Music-Playlist-System-BRD_VR/)
 
-[Project Page]
+Repo: [BRDVR/Youtube-Embed-Json-Music-Playlist-System-BRD_VR](https://github.com/BRDVR/Youtube-Embed-Json-Music-Playlist-System-BRD_VR)
 
-Open the page, choose the version you want, and use it.
+## Quick start
 
-## Straight
+1. Open the [project page](https://brdvr.github.io/Youtube-Embed-Json-Music-Playlist-System-BRD_VR/).
+2. Pick **Maintained (V5)** or **Straight (V3)**.
+3. Allow the YouTube embed if the browser asks.
 
-Straight is the simple version.
+No Python server. No Node. No install. GitHub Pages is enough.
 
-Its playlists are built directly into the page, so it does not require:
+## Straight — Playlist Loader V3
 
-- JSON files
-- file pickers
-- a local server
-- Python
-- Node
-- filesystem access
+Built-in lists. No JSON upload. Made for Quest / managed Macs / anything that cannot pick a file.
 
-This makes it suitable for devices such as VR browsers and managed
-computers where normal file management isn't available.
+Playlists are stored in `Straight.html` as one line per video:
 
-The playlist that starts first can be configured in the source with:
+```js
+["title", "id", "author"],
+```
 
-const FirstPlaylistToPlay = "Tasklike";
+The list that starts on load is set here:
 
-## Main
+```js
+const FirstPlaylistToPlay = "Simple";
+```
 
-Main is the customizable version.
+Change that string to `Tasklike`, `RealFr`, `Brain`, or `Stuffy`.
 
-It supports:
+## Main — Playlist Player V5
 
-- importing playlist JSON
-- named playlist saves
-- exporting playlists
-- queue management
-- shuffle
-- looping
-- playback controls
-- YouTube embeds
+Use this when you want your own lists.
 
-Main is intended for users who want to manage their own playlists.
+- Import a single playlist or a full save
+- Import is a preview until you hit **Save**
+- Same name overwrites that list only; a new name is added
+- Export writes the short-row format
+- Queue, shuffle, loop, hide gone, themes
+- Browser save key: `ytPlaylistPlayer.v5`  
+  If that is empty, Main will read the old `v4` save once, then write v5
 
-## GitHub Pages
+Example full save: [`Extras/V5-Save-E1.json`](Extras/V5-Save-E1.json)
 
-The project is designed to work as a static site and can be hosted
-through GitHub Pages.
+### JSON format
 
-No local server is required when using the deployed version.
+Full save:
 
-## Requirements
+```json
+{
+  "_format": "playlist-player-v5",
+  "settings": { "theme": "classic", "shuffle": true, "loopCurrent": false },
+  "current": {
+    "name": "Tasklike",
+    "url": "https://www.youtube.com/watch?v=2juWhQh8Vuw&list=PLCkc8vHfqcGqDrApY5s2dahvJFr5NCdRH",
+    "videos": [
+      [ "Dine and Dash (Taskmaster OST)", "2juWhQh8Vuw", "vineytunes" ]
+    ]
+  },
+  "saved": {}
+}
+```
 
-A modern web browser with JavaScript and YouTube access.
+A single playlist file can be just `videos` plus a name. Old `playlist-player-v4` files with `ids` / `titles` / `authors` still import.
 
-The YouTube embed player must be allowed to load.
+Browser storage stays as `{ video_id, title, author }` objects so old sessions do not break. Only imported and exported files use the one-line rows.
 
-## What it does
+## What this is not
 
-- Plays YouTube videos through YouTube's embed player.
-- Does not download YouTube videos.
-- Does not host the video files.
-- Uses YouTube for video playback and thumbnails.
+- It does not download videos
+- It does not host videos
+- It does not replace YouTube
+- Thumbnails and playback come from YouTube
 
-## Project Structure
+You need a browser that can load `youtube.com` embeds.
 
-index.html
-READEME.md
-LICENSE
+## Layout
 
-Master/
-Main.html
-Straight.html
+```
+index.html                 Traveler dashboard
+README.md
+LICENSE                    Unlicense
+Master/Main.html           Playlist Player V5
+Master/Straight.html       Playlist Loader V3
+Icons/GreenIcon.svg
+Icons/BlueIcon.svg
+Icons/RedIcon.svg
+Extras/V5-Save-E1.json     example V5 save
+```
 
-Icons/
-BlueIcon.svg
-GreenIcon.svg
-RedIcon.svg
+## License
 
-## Usage Structure
-You may copy, use, edit, change, modify, and republish this project in any way you want.
+[Unlicense](LICENSE). Copy it, change it, republish it, no credit required.
 
-The main goal of this project is to give you something you can personalize however you like. Change the design, add features, remove features, or make it work the way you want.
+The code is public domain. The songs are not. YouTube’s terms still apply to the videos you embed.
 
-# First uploaded to Github on September 10th, 2026.
+First uploaded to GitHub on September 10, 2026.
