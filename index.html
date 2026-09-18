@@ -166,31 +166,25 @@ const projects = [
     { name: "Maintained (V5)", url: "Master/Main.html", icon: "Icons/GreenIcon.svg", type: "Main" },
     { name: "Straight (V3)", url: "Master/Straight.html", icon: "Icons/BlueIcon.svg", type: "Main" }
 ];
-
 const FALLBACK_ICON = "Icons/GreenIcon.svg";
 const favicon = document.getElementById("favicon");
 favicon.href = FALLBACK_ICON;
 favicon.type = "image/svg+xml";
 favicon.rel = "icon";
-
 const TYPE_ORDER = ["Main", "Old", "Folder"];
 projects.sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type));
-
 const grid = document.getElementById("grid");
 const emptyEl = document.getElementById("empty");
 const cardEls = [];
-
 const counts = { all: projects.length, Main: 0, Old: 0, Folder: 0 };
 projects.forEach(p => { if (counts[p.type] !== undefined) counts[p.type]++; });
 document.getElementById("countAll").textContent = counts.all;
 document.getElementById("countMain").textContent = counts.Main;
 document.getElementById("countOld").textContent = counts.Old;
 document.getElementById("countFolder").textContent = counts.Folder;
-
 function escHtml(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-
 projects.forEach((p) => {
     const a = document.createElement("a");
     a.href = p.url;
@@ -221,7 +215,6 @@ projects.forEach((p) => {
     grid.appendChild(a);
     cardEls.push(a);
 });
-
 const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -233,7 +226,6 @@ const observer = new IntersectionObserver((entries) => {
     });
 }, { threshold: 0.05 });
 cardEls.forEach(c => observer.observe(c));
-
 const searchInput = document.getElementById("searchInput");
 const searchClear = document.getElementById("searchClear");
 searchInput.addEventListener("input", () => {
@@ -246,7 +238,6 @@ searchClear.addEventListener("click", () => {
     applyFilters();
     searchInput.focus();
 });
-
 let activeFilter = "all";
 document.querySelectorAll(".filter-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -256,7 +247,6 @@ document.querySelectorAll(".filter-btn").forEach(btn => {
         applyFilters();
     });
 });
-
 function applyFilters() {
     const q = searchInput.value.trim().toLowerCase();
     let visibleCount = 0;
@@ -269,7 +259,6 @@ function applyFilters() {
     });
     emptyEl.style.display = visibleCount === 0 ? "block" : "none";
 }
-
 const clockEl = document.getElementById("clock");
 function tick() {
     const d = new Date();
@@ -277,7 +266,6 @@ function tick() {
 }
 tick();
 setInterval(tick, 1000);
-
 document.addEventListener("keydown", (e) => {
     if (e.key === "/" && document.activeElement !== searchInput) { e.preventDefault(); searchInput.focus(); }
     if (e.key === "Escape" && document.activeElement === searchInput) searchInput.blur();
