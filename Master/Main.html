@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Playlist Player V4</title>
+  <title>Playlist Player V5</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%235cffc8'/%3E%3Cstop offset='1' stop-color='%231aa36e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='10' fill='url(%23g)'/%3E%3Cpath d='M10 7.5v17L25 16 10 7.5z' fill='%23052016'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -287,7 +287,7 @@
       <div class="logo-mark" aria-hidden="true">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M3 2.2v9.6L12 7 3 2.2z"/></svg>
       </div>
-      <h1>Playlist Player V4</h1>
+      <h1>Playlist Player V5</h1>
     </div>
     <div class="status" id="status">Loading…</div>
   </header>
@@ -391,10 +391,13 @@
   <div id="toast" role="status"></div>
 
   <script>
-    const STORE_KEY = "ytPlaylistPlayer.v4";
-    const TITLE_CACHE_KEY = "ytPlaylistPlayer.titles.v4";
+    const STORE_KEY = "ytPlaylistPlayer.v5";
+    const STORE_KEY_LEGACY = "ytPlaylistPlayer.v4";
+    const TITLE_CACHE_KEY = "ytPlaylistPlayer.titles.v5";
+    const TITLE_CACHE_KEY_LEGACY = "ytPlaylistPlayer.titles.v4";
     const EXTRACTOR_URL = "https://seotools.davidbreder.com/youtube-playlist";
-    const SAVE_FORMAT = "playlist-player-v4";
+    const SAVE_FORMAT = "playlist-player-v5";
+    const SAVE_FORMATS = ["playlist-player-v5", "playlist-player-v4"];
 
     const state = {
       videos: [], queue: [], queuePos: 0,
@@ -405,7 +408,7 @@
       unavailable: {}, warnDismissed: false,
       playlistName: "Default", playlistUrl: "", playlists: {},
       pendingLibrary: null, importDirty: false,
-      theme: "modern", titleCache: {}, fetchingTitles: false
+      theme: "classic", titleCache: {}, fetchingTitles: false
     };
 
     let ytApiReady = false, pendingVideoId = null, pendingPlay = false;
@@ -419,9 +422,24 @@
     }
 
     /* ── Persistence ──────────────────────────────────────── */
+    function browserVideo(v) {
+      if (Array.isArray(v)) return { video_id: v[1] || "", title: v[0] || "", author: v[2] || "", url: "" };
+      if (!v || typeof v !== "object") return { video_id: "", title: "", author: "", url: "" };
+      return {
+        video_id: v.video_id || v.id || "",
+        title: v.title || "",
+        author: v.author || "",
+        url: v.url || ""
+      };
+    }
+    function browserVideos(list) {
+      return (list || []).map(browserVideo).filter(v => v.video_id);
+    }
     function loadStore() {
       try {
-        const raw = localStorage.getItem(STORE_KEY); if (!raw) return;
+        let raw = localStorage.getItem(STORE_KEY);
+        if (!raw) raw = localStorage.getItem(STORE_KEY_LEGACY);
+        if (!raw) return;
         const d = JSON.parse(raw);
         if (typeof d.volume === "number") state.volume = d.volume;
         if (typeof d.lastVolume === "number") state.lastVolume = d.lastVolume;
@@ -433,8 +451,19 @@
         if (d.playlistName) state.playlistName = d.playlistName;
         if (d.playlistUrl) state.playlistUrl = d.playlistUrl;
         if (typeof d.duration === "number") state.duration = d.duration;
-        if (d.playlists) state.playlists = d.playlists;
-        if (Array.isArray(d.videos) && d.videos.length) state.videos = d.videos;
+        if (d.playlists) {
+          state.playlists = {};
+          for (const [name, pl] of Object.entries(d.playlists)) {
+            state.playlists[name] = {
+              videos: browserVideos(pl.videos),
+              url: pl.url || "",
+              queue: pl.queue || [],
+              queuePos: pl.queuePos || 0,
+              unavailable: pl.unavailable || {}
+            };
+          }
+        }
+        if (Array.isArray(d.videos) && d.videos.length) state.videos = browserVideos(d.videos);
         if (Array.isArray(d.queue) && d.queue.length) state.queue = d.queue;
         if (typeof d.queuePos === "number") state.queuePos = d.queuePos;
         if (typeof d.currentTime === "number") state.currentTime = d.currentTime;
@@ -443,11 +472,21 @@
       } catch (e) { console.warn("Could not restore settings", e); }
     }
     function persist() {
+      const playlists = {};
+      for (const [name, pl] of Object.entries(state.playlists || {})) {
+        playlists[name] = {
+          videos: browserVideos(pl.videos),
+          url: pl.url || "",
+          queue: pl.queue || [],
+          queuePos: pl.queuePos || 0,
+          unavailable: pl.unavailable || {}
+        };
+      }
       localStorage.setItem(STORE_KEY, JSON.stringify({
         volume: state.volume, lastVolume: state.lastVolume, muted: state.muted,
         playbackRate: state.playbackRate, shuffle: state.shuffle, loopCurrent: state.loopCurrent,
         hideGone: state.hideGone, playlistName: state.playlistName, playlistUrl: state.playlistUrl,
-        playlists: state.playlists, videos: state.videos, queue: state.queue,
+        playlists, videos: browserVideos(state.videos), queue: state.queue,
         queuePos: state.queuePos, currentTime: state.currentTime, duration: state.duration,
         unavailable: state.unavailable, theme: state.theme
       }));
@@ -455,7 +494,7 @@
     function schedulePersist() { clearTimeout(saveTimer); saveTimer = setTimeout(persist, 250); }
 
     /* ── Title cache ─────────────────────────────────────── */
-    function loadTitleCache() { try { const r = localStorage.getItem(TITLE_CACHE_KEY); if (r) state.titleCache = JSON.parse(r); } catch (_) {} }
+    function loadTitleCache() { try { const r = localStorage.getItem(TITLE_CACHE_KEY) || localStorage.getItem(TITLE_CACHE_KEY_LEGACY); if (r) state.titleCache = JSON.parse(r); } catch (_) {} }
     function saveTitleCache() { try { localStorage.setItem(TITLE_CACHE_KEY, JSON.stringify(state.titleCache)); } catch (_) {} }
     function applyTitleCache() {
       for (const v of state.videos) {
@@ -527,13 +566,8 @@
 
     /* ── Full save export/import ─────────────────────────── */
     function buildPlaylistBlock(videos, name, url, queue, queuePos, unavailable) {
-      const ids = videos.map(v => v.video_id).filter(Boolean);
-      const titles = {}, authors = {};
-      for (const v of videos) {
-        if (v.video_id && v.title) titles[v.video_id] = v.title;
-        if (v.video_id && v.author) authors[v.video_id] = v.author;
-      }
-      return { name, url: url || "", ids, titles, authors, unavailable: unavailable || {}, queue: queue || [], queue_pos: queuePos || 0 };
+      const rows = (videos || []).filter(v => v && v.video_id).map(v => [v.title || "", v.video_id, v.author || ""]);
+      return { name, url: url || "", videos: rows, unavailable: unavailable || {}, queue: queue || [], queue_pos: queuePos || 0 };
     }
 
     function exportJson() {
@@ -557,11 +591,27 @@
       const time = String(d.getHours()).padStart(2, "0") + "-" + String(d.getMinutes()).padStart(2, "0");
       const a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-      a.download = "Playlist Player V4 - " + state.playlistName + " - " + date + " at " + time + ".json";
+      a.download = "Playlist Player V5 - " + state.playlistName + " - " + date + " at " + time + ".json";
       a.click(); URL.revokeObjectURL(a.href);
     }
 
+    function videoFromRow(row) {
+      if (Array.isArray(row)) {
+        return { video_id: row[1] || "", title: row[0] || "", author: row[2] || "", url: "" };
+      }
+      if (!row || typeof row !== "object") return { video_id: "", title: "", author: "", url: "" };
+      return {
+        video_id: row.video_id || row.id || row.videoId || "",
+        title: row.title || row.name || "",
+        author: row.author || row.channel || "",
+        url: row.url || ""
+      };
+    }
     function videosFromBlock(blk) {
+      if (!blk) return [];
+      if (Array.isArray(blk.videos) && blk.videos.length) {
+        return blk.videos.map(videoFromRow).filter(v => v.video_id);
+      }
       const ids = blk.ids || [];
       const titles = blk.titles || {};
       const authors = blk.authors || {};
@@ -579,11 +629,21 @@
       if (state.queuePos >= state.queue.length) state.queuePos = 0;
       state.warnDismissed = false;
       $("warn-banner").classList.remove("visible");
-      for (const [id, title] of Object.entries(blk.titles || {})) {
+      const titles = blk.titles || {}, authors = blk.authors || {};
+      for (const v of state.videos) {
+        if (v.video_id && (v.title || v.author)) {
+          if (!state.titleCache[v.video_id]) state.titleCache[v.video_id] = { title: v.title || "", author: v.author || "" };
+          else {
+            if (v.title) state.titleCache[v.video_id].title = v.title;
+            if (v.author) state.titleCache[v.video_id].author = v.author;
+          }
+        }
+      }
+      for (const [id, title] of Object.entries(titles)) {
         if (!state.titleCache[id]) state.titleCache[id] = { title, author: "" };
         else state.titleCache[id].title = title;
       }
-      for (const [id, author] of Object.entries(blk.authors || {})) {
+      for (const [id, author] of Object.entries(authors)) {
         if (!state.titleCache[id]) state.titleCache[id] = { title: "", author };
         else state.titleCache[id].author = author;
       }
@@ -624,7 +684,7 @@
     async function importJsonText(text, fileName) {
       let data;
       try { data = JSON.parse(text); } catch (_) { showToast("Could not read that JSON file."); return; }
-      if (data._format === SAVE_FORMAT) {
+      if (SAVE_FORMATS.includes(data._format)) {
         importFullSave(data);
         const n = Object.keys(state.pendingLibrary || {}).length;
         showToast("Previewing full save (" + n + " lists). Hit Save to add or overwrite.");
@@ -805,7 +865,7 @@
     function toggleMute() { if (state.muted || state.volume === 0) { state.muted = false; setVolume(state.lastVolume || 80, true); } else { state.lastVolume = state.volume || 80; state.muted = true; setVolume(0, true); } }
 
     /* ── Player ──────────────────────────────────────────── */
-    function lockPlayerFocus() { const ifr = $("player-frame")?.querySelector("iframe"); if (ifr) { ifr.setAttribute("tabindex", "-1"); ifr.style.pointerEvents = "none"; } window.focus(); }
+    function lockPlayerFocus() { const ifr = $("player-frame")?.querySelector("iframe"); if (ifr) { ifr.setAttribute("tabindex", "-1"); ifr.style.pointerEvents = "auto"; } window.focus(); }
     function seekBy(s) { if (!state.playerReady || !state.player) return; const t = Math.max(0, (state.currentTime || 0) + s); state.player.seekTo(t, true); state.currentTime = t; }
     function applyPlaybackRate() { if (state.playerReady && state.player?.setPlaybackRate) try { state.player.setPlaybackRate(state.playbackRate); } catch (_) {} }
 
@@ -926,13 +986,20 @@
 
     /* ── Playlist loading ────────────────────────────────── */
     function normalizeVideos(data) {
-      const list = Array.isArray(data) ? data : (data.videos || data.items || []);
-      return list.map((item) => ({
-        video_id: item.video_id || item.id || item.videoId || item.snippet?.resourceId?.videoId || "",
-        title: item.title || item.name || item.snippet?.title || "",
-        author: item.author || item.channel || item.uploader || item.snippet?.videoOwnerChannelTitle || "",
-        url: item.url || item.link || item.webpage_url || ""
-      })).filter(v => v.video_id);
+      const list = Array.isArray(data) ? data : (data.videos || data.items || data.ids || []);
+      return list.map((item) => {
+        if (Array.isArray(item)) return videoFromRow(item);
+        if (typeof item === "string") {
+          const titles = data.titles || {}, authors = data.authors || {};
+          return { video_id: item, title: titles[item] || "", author: authors[item] || "", url: "" };
+        }
+        return {
+          video_id: item.video_id || item.id || item.videoId || item.snippet?.resourceId?.videoId || "",
+          title: item.title || item.name || item.snippet?.title || "",
+          author: item.author || item.channel || item.uploader || item.snippet?.videoOwnerChannelTitle || "",
+          url: item.url || item.link || item.webpage_url || ""
+        };
+      }).filter(v => v.video_id);
     }
     const KNOWN_PLAYLIST_NAMES = {
       "PLCkc8vHfqcGqDrApY5s2dahvJFr5NCdRH": "Tasklike",
@@ -1046,7 +1113,7 @@
         state.importDirty = false;
         loadNamedPlaylist(ev.target.value);
       };
-      $("player-frame").addEventListener("click", () => { lockPlayerFocus(); togglePlay(); });
+      
       const overlay = $("drop-overlay");
       const isFileDrag = ev => [...(ev.dataTransfer?.types || [])].includes("Files");
       window.addEventListener("dragover", ev => { if (!isFileDrag(ev)) return; ev.preventDefault(); overlay.classList.add("visible"); });
