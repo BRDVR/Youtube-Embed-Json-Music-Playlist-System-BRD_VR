@@ -32,10 +32,10 @@ Playlists are stored in `Straight.html` as one line per video:
 The list that starts on load is set here:
 
 ```js
-const FirstPlaylistToPlay = "Simple";
+const FirstPlaylistToPlay = "Tasklike";
 ```
 
-Change that string to `Tasklike`, `RealFr`, `Brain`, or `Stuffy`.
+Change that string to `Simple`, `RealFr`, `Brain`, or `Stuffy`.
 
 ## Main — Playlist Player V5
 

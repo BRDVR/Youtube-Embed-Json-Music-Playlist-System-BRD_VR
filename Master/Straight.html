@@ -371,7 +371,7 @@
     const STORE_KEY_OLD = "ytPlaylistPlayer.straight.v1";
     const TITLE_CACHE_KEY = "ytPlaylistPlayer.titles.straight.v1";
     const SAVE_FORMAT = "playlist-player-v4";
-    const FirstPlaylistToPlay = "Simple";
+    const FirstPlaylistToPlay = "Tasklike";
         const BUILTIN_PLAYLISTS = {
       "Tasklike": {
         name: "Tasklike",
@@ -655,13 +655,21 @@
         if (typeof d.hideGone === "boolean") state.hideGone = d.hideGone;
         if (typeof d.duration === "number") state.duration = d.duration;
         if (d.theme === "classic" || d.theme === "modern") state.theme = d.theme;
+        if (d.playlistName) state.playlistName = d.playlistName;
+        if (Array.isArray(d.queueIds)) state._savedQueueIds = d.queueIds;
+        if (typeof d.queuePos === "number") state._savedQueuePos = d.queuePos;
+        if (typeof d.currentTime === "number") state._savedTime = d.currentTime;
       } catch (e) { console.warn("Could not restore settings", e); }
     }
     function persist() {
       localStorage.setItem(STORE_KEY, JSON.stringify({
         volume: state.volume, lastVolume: state.lastVolume, muted: state.muted,
         playbackRate: state.playbackRate, shuffle: state.shuffle, loopCurrent: state.loopCurrent,
-        hideGone: state.hideGone, theme: state.theme
+        hideGone: state.hideGone, theme: state.theme,
+        playlistName: state.playlistName,
+        queueIds: state.queue.map(i => state.videos[i] && state.videos[i].video_id).filter(Boolean),
+        queuePos: state.queuePos,
+        currentTime: state.currentTime
       }));
     }
     function schedulePersist() { clearTimeout(saveTimer); saveTimer = setTimeout(persist, 250); }
@@ -749,14 +757,27 @@
 
     function startList() {
       seedBuiltinPlaylists();
-      const blk = (BUILTIN_SAVE.saved && BUILTIN_SAVE.saved[FirstPlaylistToPlay]) || BUILTIN_SAVE.current;
+      const savedName = state.playlistName;
+      const name = (BUILTIN_SAVE.saved && BUILTIN_SAVE.saved[savedName]) ? savedName : FirstPlaylistToPlay;
+      const blk = (BUILTIN_SAVE.saved && BUILTIN_SAVE.saved[name]) || BUILTIN_SAVE.current;
+      const savedQueue = state._savedQueueIds || [];
+      const savedPos = state._savedQueuePos || 0;
+      const savedTime = state._savedTime || 0;
       restoreBlock(blk);
-      state.shuffle = true;
-      state.loopCurrent = false;
-      state.playlistName = FirstPlaylistToPlay;
-      createQueue();
-      state.queuePos = 0;
-      state.currentTime = 0;
+      state.playlistName = name;
+      if (savedQueue.length) {
+        const idToIndex = new Map(state.videos.map((v, i) => [v.video_id, i]));
+        const queue = savedQueue.map(id => idToIndex.get(id)).filter(i => i != null);
+        const have = new Set(queue);
+        state.videos.forEach((_, i) => { if (!have.has(i)) queue.push(i); });
+        state.queue = queue.length ? queue : state.videos.map((_, i) => i);
+        state.queuePos = Math.max(0, Math.min(savedPos, state.queue.length - 1));
+        state.currentTime = savedTime;
+      } else {
+        createQueue();
+        state.queuePos = 0;
+        state.currentTime = 0;
+      }
     }
 
     /* ── Utilities ───────────────────────────────────────── */
