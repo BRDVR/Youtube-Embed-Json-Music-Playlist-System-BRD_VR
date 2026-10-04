@@ -1084,10 +1084,19 @@
     }
 
     function loadNamedPlaylist(name) {
-      const blk = (BUILTIN_SAVE.saved && BUILTIN_SAVE.saved[name]) || state.playlists[name];
-      if (!blk) return;
-      applyPlaylist(blk.videos ? blk : { videos: blk.videos }, name);
-      state.playlistUrl = blk.url || state.playlistUrl;
+      const compact = BUILTIN_PLAYLISTS[name];
+      const blk = (BUILTIN_SAVE.saved && BUILTIN_SAVE.saved[name]) || (compact ? expandPlaylist(compact) : null);
+      if (!blk || !(blk.ids || []).length) { showToast("That playlist is not built in."); return; }
+      restoreBlock(blk);
+      state.playlistName = name;
+      createQueue();
+      state.queuePos = 0;
+      state.currentTime = 0;
+      renderPlaylistSelect();
+      updateStatus();
+      renderQueue();
+      renderNowPlaying();
+      schedulePersist();
       playCurrent(true);
       fetchMissingTitles();
     }
