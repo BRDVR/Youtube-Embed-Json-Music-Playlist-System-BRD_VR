@@ -292,9 +292,7 @@
     <div class="status" id="status">Loading…</div>
   </header>
   <div class="toolbar">
-    <select id="playlist-select" title="Saved playlists"></select>
-    <button id="btn-save-as">Save</button>
-    <button id="btn-delete-pl" title="Delete the selected saved playlist">Delete save</button>
+    <select id="playlist-select" title="Built-in playlists"></select>
     <button id="btn-hide-gone" class="active">Hide gone</button>
     <button id="btn-fullscreen">Fullscreen</button>
     <button id="btn-theme" title="Switch between modern and classic look">Classic</button>
@@ -366,18 +364,11 @@
       </div>
     </div>
   </footer>
-  <dialog id="save-dialog">
-    <h3>Save playlist</h3>
-    <input id="save-name" placeholder="Playlist name">
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button id="save-cancel">Cancel</button>
-      <button id="save-ok">Save</button>
-    </div>
-  </dialog>
   <div id="toast" role="status"></div>
 
   <script>
-    const STORE_KEY = "ytPlaylistPlayer.straight.v1";
+    const STORE_KEY = "ytPlaylistPlayer.straight.v2";
+    const STORE_KEY_OLD = "ytPlaylistPlayer.straight.v1";
     const TITLE_CACHE_KEY = "ytPlaylistPlayer.titles.straight.v1";
     const SAVE_FORMAT = "playlist-player-v4";
     const FirstPlaylistToPlay = "Simple";
@@ -652,7 +643,8 @@
     /* ── Persistence ──────────────────────────────────────── */
     function loadStore() {
       try {
-        const raw = localStorage.getItem(STORE_KEY); if (!raw) return;
+        const raw = localStorage.getItem(STORE_KEY) || localStorage.getItem(STORE_KEY_OLD);
+        if (!raw) return;
         const d = JSON.parse(raw);
         if (typeof d.volume === "number") state.volume = d.volume;
         if (typeof d.lastVolume === "number") state.lastVolume = d.lastVolume;
@@ -661,15 +653,7 @@
         if (typeof d.shuffle === "boolean") state.shuffle = d.shuffle;
         if (typeof d.loopCurrent === "boolean") state.loopCurrent = d.loopCurrent;
         if (typeof d.hideGone === "boolean") state.hideGone = d.hideGone;
-        if (d.playlistName) state.playlistName = d.playlistName;
-        if (d.playlistUrl) state.playlistUrl = d.playlistUrl;
         if (typeof d.duration === "number") state.duration = d.duration;
-        if (d.playlists) state.playlists = d.playlists;
-        if (Array.isArray(d.videos) && d.videos.length) state.videos = d.videos;
-        if (Array.isArray(d.queue) && d.queue.length) state.queue = d.queue;
-        if (typeof d.queuePos === "number") state.queuePos = d.queuePos;
-        if (typeof d.currentTime === "number") state.currentTime = d.currentTime;
-        if (d.unavailable) state.unavailable = d.unavailable;
         if (d.theme === "classic" || d.theme === "modern") state.theme = d.theme;
       } catch (e) { console.warn("Could not restore settings", e); }
     }
@@ -677,10 +661,7 @@
       localStorage.setItem(STORE_KEY, JSON.stringify({
         volume: state.volume, lastVolume: state.lastVolume, muted: state.muted,
         playbackRate: state.playbackRate, shuffle: state.shuffle, loopCurrent: state.loopCurrent,
-        hideGone: state.hideGone, playlistName: state.playlistName, playlistUrl: state.playlistUrl,
-        playlists: state.playlists, videos: state.videos, queue: state.queue,
-        queuePos: state.queuePos, currentTime: state.currentTime, duration: state.duration,
-        unavailable: state.unavailable, theme: state.theme
+        hideGone: state.hideGone, theme: state.theme
       }));
     }
     function schedulePersist() { clearTimeout(saveTimer); saveTimer = setTimeout(persist, 250); }
@@ -760,10 +741,9 @@
 
     function seedBuiltinPlaylists() {
       const saved = (BUILTIN_SAVE && BUILTIN_SAVE.saved) || {};
+      state.playlists = {};
       for (const [name, pl] of Object.entries(saved)) {
-        if (!state.playlists[name]) {
-          state.playlists[name] = { videos: videosFromBlock(pl), url: pl.url || "" };
-        }
+        state.playlists[name] = { videos: videosFromBlock(pl), url: pl.url || "" };
       }
     }
 
@@ -909,7 +889,7 @@
     function renderQueue() {
       const list = $("queue-list"), q = visibleQueue(), filter = state.search.trim().toLowerCase();
       const shown = filter ? q.filter(item => { const v = state.videos[item.orig]; return (v?.title || "").toLowerCase().includes(filter) || String(item.orig + 1).includes(filter) || String(item.step + 1).includes(filter); }) : q;
-      $("queue-count").textContent = state.queue.length ? "Step " + (state.queuePos + 1) + " / " + state.queue.length : "Empty";
+      $("queue-count").textContent = state.queue.length ? "Step " + (state.queuePos + 1) + " / " + state.queue.length + (state.videos.length !== state.queue.length ? " (" + state.videos.length + " loaded)" : "") : "Empty";
       if (!state.videos.length) { list.innerHTML = '<div class="empty-queue"><strong>No playlist yet</strong>Use Save to keep a copy, or pick a playlist from the list.</div>'; return; }
       if (!shown.length) { list.innerHTML = '<div class="empty-queue">' + (filter ? "No matches" : "Queue is empty") + "</div>"; return; }
       const nextPos = nextQueuePos(); list.innerHTML = "";
@@ -1082,19 +1062,13 @@
       return true;
     }
 
-    /* ── Saved playlists ────────────────────────────────── */
-    function saveNamedPlaylist() {
-      const name = $("save-name").value.trim(); if (!name) return;
-      if (!state.videos.length) { showToast("Load a playlist before saving."); return; }
-      if (state.playlists[name] && !window.confirm('Replace the saved playlist named "' + name + '"?')) return;
-      state.playlists[name] = { videos: state.videos, url: state.playlistUrl || "" };
-      state.playlistName = name; $("save-dialog").close(); renderPlaylistSelect(); updateStatus(); persist(); showToast('Saved "' + name + '"');
-    }
-    function loadNamedPlaylist(name) { const pl = state.playlists[name]; if (!pl) return; applyPlaylist(pl, name); playCurrent(true); fetchMissingTitles(); }
-    function deleteNamedPlaylist() {
-      const name = state.playlistName; if (!name || !state.playlists[name]) { showToast("That playlist is not in saved lists."); return; }
-      if (!window.confirm('Delete saved playlist "' + name + '"?')) return;
-      delete state.playlists[name]; persist(); renderPlaylistSelect(); showToast('Deleted "' + name + '"');
+    function loadNamedPlaylist(name) {
+      const blk = (BUILTIN_SAVE.saved && BUILTIN_SAVE.saved[name]) || state.playlists[name];
+      if (!blk) return;
+      applyPlaylist(blk.videos ? blk : { videos: blk.videos }, name);
+      state.playlistUrl = blk.url || state.playlistUrl;
+      playCurrent(true);
+      fetchMissingTitles();
     }
 
     /* ── UI bindings ─────────────────────────────────────── */
@@ -1106,7 +1080,6 @@
       $("btn-fullscreen").onclick = () => { const el = $("player-frame"); if (!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.(); };
       $("btn-mute").onclick = toggleMute;
       $("btn-open-yt").onclick = () => { const v = currentVideo(); if (v) window.open(youtubeUrl(v.video_id), "_blank", "noopener"); };
-      $("btn-delete-pl").onclick = deleteNamedPlaylist;
       $("btn-theme").onclick = toggleTheme;
       $("btn-project").onclick = () => { window.location.href = "../index.html"; };
       $("speed").onchange = ev => { state.playbackRate = Number(ev.target.value) || 1; applyPlaybackRate(); schedulePersist(); };
@@ -1116,9 +1089,6 @@
       $("progress").onchange = ev => { if (!state.duration) return; const t = (Number(ev.target.value) / 1000) * state.duration; state.currentTime = t; if (state.playerReady) state.player.seekTo(t, true); schedulePersist(); };
       $("search").oninput = ev => { state.search = ev.target.value; renderQueue(); };
       $("warn-dismiss").onclick = () => { state.warnDismissed = true; $("warn-banner").classList.remove("visible"); };
-      $("btn-save-as").onclick = () => { $("save-name").value = state.playlistName || ""; $("save-dialog").showModal(); };
-      $("save-cancel").onclick = () => $("save-dialog").close();
-      $("save-ok").onclick = saveNamedPlaylist;
       $("playlist-select").onchange = ev => { if (ev.target.value !== "__current") loadNamedPlaylist(ev.target.value); };
       
       document.addEventListener("keydown", ev => {

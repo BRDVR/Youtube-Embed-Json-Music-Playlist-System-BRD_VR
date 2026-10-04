@@ -49,7 +49,7 @@ Use this when you want your own lists.
 - Browser save key: `ytPlaylistPlayer.v5`  
   If that is empty, Main will read the old `v4` save once, then write v5
 
-Example full save: [`Extras/V5-Save-E1.json`](Extras/V5-Save-E1.json)
+Example full save: [`Extras/V5-Save-E2.json`](Extras/V5-Save-E2.json)
 
 ### JSON format
 
@@ -94,7 +94,7 @@ Master/Straight.html       Playlist Loader V3
 Icons/GreenIcon.svg
 Icons/BlueIcon.svg
 Icons/RedIcon.svg
-Extras/V5-Save-E1.json     example V5 save
+Extras/V5-Save-E2.json     example V5 save
 ```
 
 ## License
