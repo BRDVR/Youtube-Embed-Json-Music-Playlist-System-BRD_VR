@@ -296,7 +296,7 @@
     <button id="btn-hide-gone" class="active">Hide gone</button>
     <button id="btn-fullscreen">Fullscreen</button>
     <button id="btn-theme" title="Switch between modern and classic look">Classic</button>
-    <button id="btn-project" title="Open Project Page">Project Page</button>
+    <button id="btn-project" title="Open GitHub repository">Project Page</button>
     <div class="search-wrap">
       <span>Search</span>
       <input id="search" type="search" placeholder="Title or number" autocomplete="off">
@@ -891,7 +891,7 @@
       $("btn-mute").onclick = toggleMute;
       $("btn-open-yt").onclick = () => { const v = currentVideo(); if (v) window.open(youtubeUrl(v.video_id), "_blank", "noopener"); };
       $("btn-theme").onclick = toggleTheme;
-      $("btn-project").onclick = () => { window.location.href = "../index.html"; };
+      $("btn-project").onclick = () => { window.location.href = "https://github.com/BRDVR/Youtube-Embed-Json-Music-Playlist-System-BRD_VR"; };
       $("speed").onchange = ev => { state.playbackRate = Number(ev.target.value) || 1; applyPlaybackRate(); schedulePersist(); };
       $("volume").oninput = ev => setVolume(sliderToVolume(ev.target.value));
       $("progress").onmousedown = () => { state.seeking = true; };
