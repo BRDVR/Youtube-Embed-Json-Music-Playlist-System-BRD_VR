@@ -1,106 +1,21 @@
-# YouTube Playlist Player
+# BRD_VR YouTube Playlist Project
 
-A small static YouTube playlist player. Videos stay on YouTube. This project only embeds them.
+This project is a JSON-based playlist player that plays videos through YouTube's official embeds. The playlists included here are the playlists that I use through GitHub Pages daily. They are examples for this project, not a required set of videos.
 
-Two apps live in `Master/`:
+## Customize your playlists
 
-- **Main (V5)** — import / export JSON, named saves, queue, shuffle, loop
-- **Straight (V3)** — playlists baked into the page for VR browsers and machines with no file picker
+To use your own playlists, download or clone the entire repository so you have the player, its JSON playlist files, and required icons together. Edit the JSON files in `Playlists/` to add or remove playlists and videos. The player reads the playlist files from that folder.
 
-Live site: [https://brdvr.github.io/Youtube-Embed-Json-Music-Playlist-System-BRD_VR/](https://brdvr.github.io/Youtube-Embed-Json-Music-Playlist-System-BRD_VR/)
+Because the player loads JSON files, serve the repository through a local web server rather than opening `index.html` or `Straight.html` directly from your file manager. For example, with Python installed, open a terminal in the repository folder and run:
 
-Repo: [BRDVR/Youtube-Embed-Json-Music-Playlist-System-BRD_VR](https://github.com/BRDVR/Youtube-Embed-Json-Music-Playlist-System-BRD_VR)
-
-## Quick start
-
-1. Open the [project page](https://brdvr.github.io/Youtube-Embed-Json-Music-Playlist-System-BRD_VR/).
-2. Pick **Maintained (V5)** or **Straight (V3)**.
-3. Allow the YouTube embed if the browser asks.
-
-No Python server. No Node. No install. GitHub Pages is enough.
-
-## Straight — Playlist Loader V3
-
-Built-in lists. No JSON upload. Made for Quest / managed Macs / anything that cannot pick a file.
-
-Playlists are stored in `Straight.html` as one line per video:
-
-```js
-["title", "id", "author"],
+```sh
+python3 -m http.server 8081
 ```
 
-The list that starts on load is set here:
+Then open `http://localhost:8081/` in your browser and select Straight. Keep the server running while you use the player.
 
-```js
-const FirstPlaylistToPlay = "Tasklike";
-```
+## Ownership and use
 
-Change that string to `Simple`, `RealFr`, `Brain`, or `Stuffy`.
+The project's original code and files are released under the [Unlicense](LICENSE), so they may be copied, modified, and used freely.
 
-## Main — Playlist Player V5
-
-Use this when you want your own lists.
-
-- Import a single playlist or a full save
-- Import is a preview until you hit **Save**
-- Same name overwrites that list only; a new name is added
-- Export writes the short-row format
-- Queue, shuffle, loop, hide gone, themes
-- Browser save key: `ytPlaylistPlayer.v5`  
-  If that is empty, Main will read the old `v4` save once, then write v5
-
-Example full save: [`Extras/V5-Save-E2.json`](Extras/V5-Save-E2.json)
-
-### JSON format
-
-Full save:
-
-```json
-{
-  "_format": "playlist-player-v5",
-  "settings": { "theme": "classic", "shuffle": true, "loopCurrent": false },
-  "current": {
-    "name": "Tasklike",
-    "url": "https://www.youtube.com/watch?v=2juWhQh8Vuw&list=PLCkc8vHfqcGqDrApY5s2dahvJFr5NCdRH",
-    "videos": [
-      [ "Dine and Dash (Taskmaster OST)", "2juWhQh8Vuw", "vineytunes" ]
-    ]
-  },
-  "saved": {}
-}
-```
-
-A single playlist file can be just `videos` plus a name. Old `playlist-player-v4` files with `ids` / `titles` / `authors` still import.
-
-Browser storage stays as `{ video_id, title, author }` objects so old sessions do not break. Only imported and exported files use the one-line rows.
-
-## What this is not
-
-- It does not download videos
-- It does not host videos
-- It does not replace YouTube
-- Thumbnails and playback come from YouTube
-
-You need a browser that can load `youtube.com` embeds.
-
-## Layout
-
-```
-index.html                 Traveler dashboard
-README.md
-LICENSE                    Unlicense
-Master/Main.html           Playlist Player V5
-Master/Straight.html       Playlist Loader V3
-Icons/GreenIcon.svg
-Icons/BlueIcon.svg
-Icons/RedIcon.svg
-Extras/V5-Save-E2.json     example V5 save
-```
-
-## License
-
-[Unlicense](LICENSE). Copy it, change it, republish it, no credit required.
-
-The code is public domain. The songs are not. YouTube’s terms still apply to the videos you embed.
-
-First uploaded to GitHub on September 10, 2026.
+BRD_VR does not own YouTube, its platform, or videos hosted there. Videos remain on YouTube and are subject to YouTube's terms and the rights of their respective owners.
