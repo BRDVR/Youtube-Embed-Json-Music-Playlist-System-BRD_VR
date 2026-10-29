@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Check Live Playlists</title>
-  <link rel="icon" type="image/svg+xml" href="BlueIcon.svg">
+  <link rel="icon" type="image/svg+xml" href="./BlueIcon.svg" sizes="any">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -102,11 +102,11 @@
   </header>
   <main>
     <section class="intro">
-      <p>Compare every playlist JSON with its own live YouTube playlist. Preview additions, entries not in the live list, order differences, and missing titles or artists. Export replacement JSON files in one ZIP when the checks finish successfully. Existing entries missing from the live playlist are kept in the replacement and flagged for review.</p>
+      <p>Linked playlists are checked against their own YouTube playlist. Set <code>"custom": true</code> in a playlist JSON to skip the API and pass that file's fields and song rows through both ZIP exports without API rewriting or normalization. Replacement exports keep saved entries absent from the live list for review; both exports remove clear duplicate uploads that differ only by a trailing "- Topic" artist suffix.</p>
       <button id="run-check" type="button">Check All Playlists</button>
       <button id="download-zip" type="button" disabled>Download Replacement ZIP</button>
       <button id="full-restore" type="button" disabled>Full Restore ZIP</button>
-      <p>Full Restore exports only the entries returned by the API, in API order. For matching video IDs, it reuses saved titles and artists when present; otherwise it uses the API metadata. Entries not returned by the API are omitted.</p>
+      <p>Full Restore exports only the entries returned by the API, in API order. For matching video IDs, it reuses saved titles and artists when present; otherwise it uses the API metadata. Entries not returned by the API are omitted. Clear duplicate uploads and repeated video IDs are removed, and exported artist names have a trailing "- Topic" removed.</p>
     </section>
     <p id="summary" role="status" aria-live="polite">Ready to check playlists.</p>
     <section id="reports" aria-live="polite"></section>
@@ -124,16 +124,105 @@
     function videoUrl(id) {
       return `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
     }
+    function topicArtist(artist) {
+      return /\s+[-–—]\s*topic\s*$/i.test(String(artist || ""));
+    }
+    function stripTopicSuffix(artist) {
+      return String(artist || "").replace(/\s+[-–—]\s*topic\s*$/i, "").trim();
+    }
+    function normalizedText(value) {
+      return String(value || "").normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase();
+    }
+    function topicVariantKey(video) {
+      const title = normalizedText(video.title);
+      const artist = normalizedText(stripTopicSuffix(video.artist));
+      return title && artist ? `${title}\u0000${artist}` : "";
+    }
+    function deduplicateExportRows(rows, preferredIds = new Set()) {
+      const seenIds = new Set();
+      const uniqueRows = [];
+      let duplicateIdsRemoved = 0;
+      for (const row of rows) {
+        if (seenIds.has(row[1])) {
+          duplicateIdsRemoved += 1;
+          continue;
+        }
+        seenIds.add(row[1]);
+        uniqueRows.push([...row]);
+      }
+
+      const topicGroups = new Map();
+      for (let index = 0; index < uniqueRows.length; index += 1) {
+        const row = uniqueRows[index];
+        const key = topicVariantKey({ title: row[0], artist: row[2] });
+        if (!key) continue;
+        const group = topicGroups.get(key) || { topic: [], regular: [] };
+        group[topicArtist(row[2]) ? "topic" : "regular"].push(index);
+        topicGroups.set(key, group);
+      }
+      const dropped = new Set();
+      let topicDuplicatesRemoved = 0;
+      let ambiguousTopicGroups = 0;
+      for (const group of topicGroups.values()) {
+        if (!group.topic.length || !group.regular.length) continue;
+        if (group.topic.length !== 1 || group.regular.length !== 1) {
+          ambiguousTopicGroups += 1;
+          continue;
+        }
+        const topicIndex = group.topic[0];
+        const regularIndex = group.regular[0];
+        const topicIsPreferred = preferredIds.has(uniqueRows[topicIndex][1]);
+        const regularIsPreferred = preferredIds.has(uniqueRows[regularIndex][1]);
+        const keepIndex = topicIsPreferred !== regularIsPreferred
+          ? (topicIsPreferred ? topicIndex : regularIndex)
+          : regularIndex;
+        dropped.add(keepIndex === topicIndex ? regularIndex : topicIndex);
+        topicDuplicatesRemoved += 1;
+      }
+
+      const result = uniqueRows
+        .filter((_, index) => !dropped.has(index))
+        .map(row => {
+          if (typeof row[2] === "string") row[2] = stripTopicSuffix(row[2]);
+          return row;
+        });
+      return { rows: result, duplicateIdsRemoved, topicDuplicatesRemoved, ambiguousTopicGroups };
+    }
     function compareVideos(savedVideos, liveVideos, allLiveVideos) {
-      const savedIds = savedVideos.map(video => video.id);
-      const liveIds = liveVideos.map(video => video.id);
+      const savedIds = [...new Set(savedVideos.map(video => video.id))];
+      const liveIds = [...new Set(liveVideos.map(video => video.id))];
       const savedSet = new Set(savedIds);
       const liveSet = new Set(allLiveVideos.map(video => video.id));
       const commonSavedOrder = savedIds.filter(id => liveIds.includes(id));
       const commonLiveOrder = liveIds.filter(id => savedSet.has(id));
+      const additions = liveVideos.filter(video => !savedSet.has(video.id));
+      const notInLive = savedVideos.filter(video => !liveSet.has(video.id));
+      const topicVariants = [];
+      const pairedSaved = new Set();
+      const pairedLive = new Set();
+      for (const liveVideo of additions) {
+        const candidates = savedVideos.filter(savedVideo =>
+          !pairedSaved.has(savedVideo.id) &&
+          topicVariantKey(savedVideo) &&
+          topicVariantKey(savedVideo) === topicVariantKey({
+            title: liveVideo.title,
+            artist: liveVideo.channelTitle
+          }) &&
+          topicArtist(savedVideo.artist) !== topicArtist(liveVideo.channelTitle)
+        );
+        if (candidates.length === 1) {
+          const savedVideo = candidates[0];
+          pairedSaved.add(savedVideo.id);
+          pairedLive.add(liveVideo.id);
+          topicVariants.push({ savedVideo, liveVideo });
+        }
+      }
+      const unmatchedSaved = notInLive.filter(video => !pairedSaved.has(video.id));
+      const unmatchedLive = additions.filter(video => !pairedLive.has(video.id));
       return {
-        additions: liveVideos.filter(video => !savedSet.has(video.id)),
-        notInLive: savedVideos.filter(video => !liveSet.has(video.id)),
+        additions: unmatchedLive,
+        notInLive: unmatchedSaved,
+        topicVariants,
         commonOrderMatches: commonSavedOrder.join(",") === commonLiveOrder.join(",")
       };
     }
@@ -173,10 +262,11 @@
         clearTimeout(timeout);
       }
     }
-    async function inspectMetadata(videos, liveVideos) {
+    async function inspectMetadata(videos, liveVideos, allLiveVideos) {
       const liveById = new Map(liveVideos.map(video => [video.id, video]));
+      const unavailableIds = new Set(allLiveVideos.filter(video => video.unavailable === true).map(video => video.id));
       const missing = videos.map((video, index) => ({ video, index }))
-        .filter(({ video }) => !video.title.trim() || !video.artist.trim());
+        .filter(({ video }) => !unavailableIds.has(video.id) && (!video.title.trim() || !video.artist.trim()));
       const results = [];
       for (let i = 0; i < missing.length; i += 3) {
         const batch = await Promise.all(missing.slice(i, i + 3).map(async ({ video, index }) => {
@@ -221,15 +311,28 @@
       const localResponse = await fetch(new URL(file, document.baseURI));
       if (!localResponse.ok) throw new Error(`${file}: HTTP ${localResponse.status}`);
       const playlist = await localResponse.json();
-      if (playlist.name !== name || !Array.isArray(playlist.videos) || !playlist.url) {
+      if (!playlist || playlist.name !== name || !Array.isArray(playlist.videos) ||
+          (playlist.custom !== undefined && typeof playlist.custom !== "boolean")) {
         throw new Error(`Invalid playlist JSON in ${file}.`);
       }
       const savedVideos = playlist.videos.map((row, index) => {
-        if (!Array.isArray(row) || row.length < 3 || typeof row[1] !== "string" || !row[1].trim()) {
+        if (!Array.isArray(row) || row.length < 3 || typeof row[0] !== "string" ||
+            typeof row[1] !== "string" || !row[1].trim() || typeof row[2] !== "string") {
           throw new Error(`${file}: invalid video row ${index + 1}.`);
         }
         return { title: String(row[0] || ""), id: row[1], artist: String(row[2] || ""), row };
       });
+      if (playlist.custom === true) {
+        const customJson = serializeJson(playlist) + "\n";
+        return {
+          name, file, custom: true, savedVideos,
+          replacementRows: playlist.videos, restoreRows: playlist.videos,
+          replacementJson: customJson, restoreJson: customJson
+        };
+      }
+      if (typeof playlist.url !== "string" || !playlist.url.trim()) {
+        throw new Error(`${file} is not marked custom and has no YouTube playlist URL.`);
+      }
       const listId = new URL(playlist.url).searchParams.get("list");
       if (!listId) throw new Error(`${file} does not contain a YouTube playlist ID.`);
       const controller = new AbortController();
@@ -245,18 +348,22 @@
       } finally {
         clearTimeout(timeout);
       }
-      if (live.id !== listId || !Array.isArray(live.videos) || live.truncated === true) {
+      if (!live || live.id !== listId || !Array.isArray(live.videos) || live.truncated === true) {
         throw new Error("The playlist API returned incomplete or unexpected data.");
       }
+      const positions = new Set();
       for (const video of live.videos) {
-        if (!video || typeof video.id !== "string" || !video.id.trim() || typeof video.title !== "string" || typeof video.n !== "number") {
+        if (!video || typeof video.id !== "string" || !video.id.trim() ||
+            typeof video.title !== "string" || !Number.isInteger(video.n) || video.n < 1 ||
+            positions.has(video.n)) {
           throw new Error("The playlist API returned an invalid video entry.");
         }
+        positions.add(video.n);
       }
       const available = live.videos.filter(video => video.unavailable !== true).sort((a, b) => a.n - b.n);
       const comparison = compareVideos(savedVideos, available, live.videos);
       const [metadataGaps, additionMetadata] = await Promise.all([
-        inspectMetadata(savedVideos, available),
+        inspectMetadata(savedVideos, available, live.videos),
         inspectAdditionMetadata(comparison.additions)
       ]);
       const rowsById = new Map();
@@ -265,8 +372,12 @@
       const additionMetadataById = new Map(additionMetadata.map(item => [item.id, item]));
       const replacementRows = [];
       const includedIds = new Set();
-      const countDuplicates = videos => videos.length - new Set(videos.map(video => video.id)).size;
-      const duplicatesRemoved = countDuplicates(savedVideos) + countDuplicates(available);
+      const availableIds = new Set(available.map(video => video.id));
+      const replacementCandidateIds = [
+        ...available.map(video => video.id),
+        ...savedVideos.filter(video => !availableIds.has(video.id)).map(video => video.id)
+      ];
+      const replacementDuplicateIdsRemoved = replacementCandidateIds.length - new Set(replacementCandidateIds).size;
       const appendExisting = video => {
         if (includedIds.has(video.id)) return;
         includedIds.add(video.id);
@@ -285,16 +396,14 @@
         } else {
           if (includedIds.has(liveVideo.id)) continue;
           const metadata = additionMetadataById.get(liveVideo.id);
-          replacementRows.push([liveVideo.title, liveVideo.id, metadata?.artist || ""]);
+          replacementRows.push([liveVideo.title, liveVideo.id, metadata?.artist || liveVideo.channelTitle || ""]);
           includedIds.add(liveVideo.id);
         }
       }
       for (const savedVideo of savedVideos) {
         if (!includedIds.has(savedVideo.id)) appendExisting(savedVideo);
       }
-      const replacement = { ...playlist, videos: replacementRows };
-      const replacementJson = serializeJson(replacement) + "\n";
-      const restoreRows = live.videos
+      const restoreCandidates = live.videos
         .slice()
         .sort((a, b) => a.n - b.n)
         .map(video => {
@@ -305,11 +414,23 @@
           if (!String(row[2] || "").trim()) row[2] = video.channelTitle || "";
           return row;
         });
+      const preferredIds = new Set(available.map(video => video.id));
+      const replacementDeduped = deduplicateExportRows(replacementRows, preferredIds);
+      const restoreDeduped = deduplicateExportRows(restoreCandidates, preferredIds);
+      const finalReplacementRows = replacementDeduped.rows;
+      const restoreRows = restoreDeduped.rows;
+      const replacementJson = serializeJson({ ...playlist, videos: finalReplacementRows }) + "\n";
       const restoreJson = serializeJson({ ...playlist, videos: restoreRows }) + "\n";
       return {
         name, file, listId, savedVideos, liveVideos: available, comparison, metadataGaps,
-        additionMetadata, replacementRows, replacementJson, duplicatesRemoved,
+        additionMetadata, replacementRows: finalReplacementRows, replacementJson,
+        duplicateIdsRemoved: replacementDuplicateIdsRemoved + replacementDeduped.duplicateIdsRemoved,
+        topicDuplicatesRemoved: replacementDeduped.topicDuplicatesRemoved,
+        ambiguousTopicGroups: replacementDeduped.ambiguousTopicGroups,
         restoreRows, restoreJson,
+        restoreDuplicateIdsRemoved: restoreDeduped.duplicateIdsRemoved,
+        restoreTopicDuplicatesRemoved: restoreDeduped.topicDuplicatesRemoved,
+        restoreAmbiguousTopicGroups: restoreDeduped.ambiguousTopicGroups,
         apiFetchedAt: typeof live.fetchedAt === "string" ? live.fetchedAt : "",
         apiCache: typeof live.cache === "string" ? live.cache : "",
         unavailableCount: live.videos.length - available.length
@@ -336,6 +457,7 @@
       return (crc ^ 0xffffffff) >>> 0;
     }
     function makeZip(files) {
+      if (files.length > 65535) throw new Error("Too many files for a standard ZIP archive.");
       const encoder = new TextEncoder();
       const localParts = [];
       const centralParts = [];
@@ -383,8 +505,10 @@
         central.set(name, 46);
         centralParts.push(central);
         localOffset += local.length + data.length;
+        if (localOffset > 0xffffffff) throw new Error("ZIP archive exceeds the supported size.");
       }
       const centralSize = centralParts.reduce((size, part) => size + part.length, 0);
+      if (centralSize > 0xffffffff) throw new Error("ZIP directory exceeds the supported size.");
       const end = new Uint8Array(22);
       const endView = new DataView(end.buffer);
       endView.setUint32(0, 0x06054b50, true);
@@ -410,6 +534,9 @@
       button.disabled = true;
       fullRestoreButton.disabled = true;
       try {
+        if (completedReports.length !== PLAYLISTS.length || completedReports.some(report => report.error)) {
+          throw new Error("Check all playlists successfully before exporting.");
+        }
         const blob = makeZip(completedReports.map(report => ({
           name: report.file,
           content: report[jsonKey]
@@ -465,14 +592,26 @@
         card.appendChild(makeElement("p", report.error, "error"));
         return card;
       }
+      if (report.custom) {
+        card.appendChild(makeElement("p", "Custom/manual playlist. Its URL field is ignored; the JSON is copied unchanged to both ZIP exports so you can maintain its video rows yourself."));
+        const preview = document.createElement("details");
+        preview.className = "report-details";
+        preview.appendChild(makeElement("summary", `Custom ZIP preview: ${report.savedVideos.length} manually maintained entries`));
+        preview.appendChild(makeElement("pre", report.replacementJson));
+        card.appendChild(preview);
+        return card;
+      }
 
       const { comparison, metadataGaps, liveVideos, unavailableCount } = report;
-      const needsReview = comparison.additions.length || comparison.notInLive.length || !comparison.commonOrderMatches || metadataGaps.length;
+      const needsReview = comparison.additions.length || comparison.notInLive.length ||
+        comparison.topicVariants.length || !comparison.commonOrderMatches || metadataGaps.length ||
+        report.ambiguousTopicGroups || report.restoreAmbiguousTopicGroups;
       let summary = needsReview
         ? `${report.savedVideos.length} in JSON; ${liveVideos.length} available live.`
         : `Matches live playlist (${liveVideos.length} available videos).`;
       if (comparison.additions.length) summary += ` ${comparison.additions.length} live ${comparison.additions.length === 1 ? "video is" : "videos are"} missing from this JSON.`;
       if (comparison.notInLive.length) summary += ` ${comparison.notInLive.length} ${comparison.notInLive.length === 1 ? "JSON entry is" : "JSON entries are"} not in this live playlist.`;
+      if (comparison.topicVariants.length) summary += ` ${comparison.topicVariants.length} same-song Topic upload ${comparison.topicVariants.length === 1 ? "variant is" : "variants are"} collapsed in ZIP exports.`;
       if (!comparison.commonOrderMatches) summary += " Shared videos appear in a different order.";
       if (metadataGaps.length) summary += ` ${metadataGaps.length} JSON ${metadataGaps.length === 1 ? "entry is" : "entries are"} missing title or artist metadata.`;
       if (unavailableCount) summary += ` ${unavailableCount} unavailable/deleted live ${unavailableCount === 1 ? "entry was" : "entries were"} ignored as additions.`;
@@ -494,7 +633,7 @@
         }
         const additionsById = new Map(report.additionMetadata.map(item => [item.id, item]));
         const rows = comparison.additions.map(video => {
-          const artist = additionsById.get(video.id)?.artist || "";
+          const artist = stripTopicSuffix(additionsById.get(video.id)?.artist || video.channelTitle || "");
           return `    [${JSON.stringify(video.title)},${JSON.stringify(video.id)},${JSON.stringify(artist)}]`;
         }).join(",\n");
         card.appendChild(makeElement("pre", rows));
@@ -509,13 +648,25 @@
         for (const video of comparison.notInLive) list.appendChild(makeElement("li", `${video.title || "Untitled video"} is present in this JSON but was not returned by the API (${video.id}).`));
         card.appendChild(list);
       }
+      if (comparison.topicVariants.length) {
+        card.appendChild(makeElement("h3", "Same-song Topic upload variants"));
+        const list = document.createElement("ul");
+        for (const pair of comparison.topicVariants) {
+          const savedAlsoLive = liveVideos.some(video => video.id === pair.savedVideo.id);
+          const keptId = savedAlsoLive && !topicArtist(pair.savedVideo.artist)
+            ? pair.savedVideo.id
+            : pair.liveVideo.id;
+          list.appendChild(makeElement("li", `${pair.savedVideo.title} appears as "${pair.savedVideo.artist}" (${pair.savedVideo.id}) in JSON and "${pair.liveVideo.channelTitle}" (${pair.liveVideo.id}) in the API playlist. ZIP exports keep video ${keptId} and remove the trailing "- Topic" from artist names.`));
+        }
+        card.appendChild(list);
+      }
       if (metadataGaps.length) {
         card.appendChild(makeElement("h3", `Missing title or artist in ${report.file}`));
         for (const gap of metadataGaps) {
           const missing = [gap.missingTitle && "title", gap.missingArtist && "artist"].filter(Boolean).join(" and ");
           card.appendChild(makeElement("p", `JSON row #${gap.row} (${gap.video.id}) is missing ${missing}. Suggested title: ${gap.title ? JSON.stringify(gap.title) : "not found"}; artist: ${gap.artist ? JSON.stringify(gap.artist) : "not found"}.${gap.lookupError ? ` ${gap.lookupError}` : ""}`));
           if (gap.title || gap.artist) {
-            const row = `    [${JSON.stringify(gap.title)},${JSON.stringify(gap.video.id)},${JSON.stringify(gap.artist)}]`;
+            const row = `    [${JSON.stringify(gap.title)},${JSON.stringify(gap.video.id)},${JSON.stringify(stripTopicSuffix(gap.artist))}]`;
             card.appendChild(makeElement("pre", row));
             const copyButton = makeElement("button", `Copy row #${gap.row}`, "copy-row");
             copyButton.dataset.label = copyButton.textContent;
@@ -528,15 +679,19 @@
       preview.className = "report-details";
       const previewSummary = makeElement("summary", `Replacement preview: ${report.replacementRows.length} entries`);
       preview.appendChild(previewSummary);
+      const replacementDuplicateCount = report.duplicateIdsRemoved + report.topicDuplicatesRemoved;
+      const restoreDuplicateCount = report.restoreDuplicateIdsRemoved + report.restoreTopicDuplicatesRemoved;
       const previewText = [
         `${comparison.additions.length} live additions`,
         `${comparison.notInLive.length} saved entries not in the live playlist (kept at the end)`,
         `Shared entries ${comparison.commonOrderMatches ? "already match" : "will be reordered to match"} live order`,
-        `${metadataGaps.filter(gap => gap.missingTitle && gap.title || gap.missingArtist && gap.artist).length} metadata gap${metadataGaps.length === 1 ? "" : "s"} can be filled`,
-        `${report.duplicatesRemoved} duplicate entr${report.duplicatesRemoved === 1 ? "y" : "ies"} removed`
+        `${metadataGaps.filter(gap => gap.missingTitle && gap.title || gap.missingArtist && gap.artist).length} metadata gap${metadataGaps.length === 1 ? "" : "s"} can be filled`
       ].join(" · ");
       preview.appendChild(makeElement("p", previewText));
-      preview.appendChild(makeElement("p", `Full restore preview: ${report.restoreRows.length} entries exactly as returned by the API, including unavailable entries. Saved title/artist values are reused for matching IDs; API titles and channel names fill unmatched or blank fields.`));
+      preview.appendChild(makeElement("p", `Replacement removes ${replacementDuplicateCount} duplicate entr${replacementDuplicateCount === 1 ? "y" : "ies"}. Full restore: ${report.restoreRows.length} entries after removing ${restoreDuplicateCount} duplicate entr${restoreDuplicateCount === 1 ? "y" : "ies"}. API order is preserved, including unavailable entries; saved title/artist values are reused for matching IDs.`));
+      if (report.ambiguousTopicGroups || report.restoreAmbiguousTopicGroups) {
+        preview.appendChild(makeElement("p", `${Math.max(report.ambiguousTopicGroups, report.restoreAmbiguousTopicGroups)} possible Topic duplicate group(s) were left unchanged because more than one candidate matched. Review these entries manually.`));
+      }
       preview.appendChild(makeElement("pre", report.replacementJson));
       card.appendChild(preview);
       const source = document.createElement("a");
@@ -575,11 +730,14 @@
           downloadButton.disabled = false;
           fullRestoreButton.disabled = false;
         }
-        const needsReview = reports.filter(report => !report.error && (
+        const needsReview = reports.filter(report => !report.error && !report.custom && (
           report.comparison.additions.length || report.comparison.notInLive.length ||
-          !report.comparison.commonOrderMatches || report.metadataGaps.length
+          report.comparison.topicVariants.length || !report.comparison.commonOrderMatches ||
+          report.metadataGaps.length || report.ambiguousTopicGroups || report.restoreAmbiguousTopicGroups
         )).length;
-        summary.textContent = `Checked ${reports.length} playlists: ${reports.length - failed - needsReview} match, ${needsReview} need review, ${failed} failed.`;
+        const custom = reports.filter(report => !report.error && report.custom).length;
+        const checked = reports.length - failed - custom;
+        summary.textContent = `Checked ${checked} linked playlists: ${checked - needsReview} match, ${needsReview} need review, ${custom} custom pass-through, ${failed} failed.`;
         for (const report of reports) reportsElement.appendChild(renderReport(report));
       } finally {
         button.disabled = false;

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Playlist Loader V4</title>
-  <link rel="icon" type="image/svg+xml" href="BlueIcon.svg">
+  <link rel="icon" type="image/svg+xml" href="./BlueIcon.svg" sizes="any">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
@@ -398,7 +398,7 @@
         if (!id) continue;
         ids.push(id); titles[id] = title; authors[id] = author;
       }
-      return { name: pl.name, url: pl.url || "", ids, titles, authors, unavailable: {}, queue: [], queue_pos: 0 };
+      return { name: pl.name, url: pl.custom === true ? "" : pl.url || "", custom: pl.custom === true, ids, titles, authors, unavailable: {}, queue: [], queue_pos: 0 };
     }
 
     const state = {
@@ -408,7 +408,7 @@
       currentTime: 0, duration: 0, playing: false,
       player: null, playerReady: false, seeking: false, search: "",
       unavailable: {}, warnDismissed: false,
-      playlistName: "Tasklike", playlistUrl: "", playlists: {},
+      playlistName: "Tasklike", playlistUrl: "", customPlaylist: false, playlists: {},
       theme: "classic", titleCache: {}, fetchingTitles: false
     };
 
@@ -512,7 +512,8 @@
     function restoreBlock(blk) {
       state.videos = videosFromBlock(blk);
       state.playlistName = blk.name || "Playlist";
-      state.playlistUrl = blk.url || "";
+      state.customPlaylist = blk.custom === true;
+      state.playlistUrl = state.customPlaylist ? "" : blk.url || "";
       state.unavailable = blk.unavailable || {};
       state.queue = [];
       state.queuePos = 0;
@@ -534,7 +535,9 @@
         const response = await fetch(new URL(file, document.baseURI));
         if (!response.ok) throw new Error(`Could not load ${file}: HTTP ${response.status}`);
         const playlist = await response.json();
-        if (playlist.name !== name || !Array.isArray(playlist.videos) || !playlist.videos.length) {
+        if (playlist.name !== name || !Array.isArray(playlist.videos) ||
+            (playlist.custom !== undefined && typeof playlist.custom !== "boolean") ||
+            (!playlist.videos.length && playlist.custom !== true)) {
           throw new Error(`Invalid playlist data in ${file}`);
         }
         for (const row of playlist.videos) {
@@ -626,6 +629,7 @@
       return playlistUrlFromId(listId, videoId) || normalizePlaylistUrl(name);
     }
     function currentPlaylistUrl() {
+      if (state.customPlaylist) return "";
       const a = normalizePlaylistUrl(state.playlistUrl); if (a) return a;
       const b = normalizePlaylistUrl(state.playlistName); if (b) return b;
       for (const v of state.videos) { const f = normalizePlaylistUrl(v?.url || v?.playlistUrl || v?.playlist_id || ""); if (f) return f; }
@@ -679,7 +683,8 @@
     /* ── Render ───────────────────────────────────────────── */
     function updateStatus() {
       const total = state.videos.length, gone = Object.keys(state.unavailable).length;
-      let text = total ? total + " videos" + (gone ? " · " + gone + " hidden" : "") + " · " + state.playlistName : "No playlist loaded";
+      let text = total ? total + " videos" + (gone ? " · " + gone + " hidden" : "") + " · " + state.playlistName
+        : state.customPlaylist ? "0 videos · " + state.playlistName : "No playlist loaded";
       if (state.fetchingTitles) text += " · fetching titles…";
       $("status").textContent = text;
     }
@@ -702,7 +707,12 @@
       const list = $("queue-list"), q = visibleQueue(), filter = state.search.trim().toLowerCase();
       const shown = filter ? q.filter(item => { const v = state.videos[item.orig]; return (v?.title || "").toLowerCase().includes(filter) || String(item.orig + 1).includes(filter) || String(item.step + 1).includes(filter); }) : q;
       $("queue-count").textContent = state.queue.length ? "Step " + (state.queuePos + 1) + " / " + state.queue.length + (state.videos.length !== state.queue.length ? " (" + state.videos.length + " loaded)" : "") : "Empty";
-      if (!state.videos.length) { list.innerHTML = '<div class="empty-queue"><strong>No playlist yet</strong>Use Save to keep a copy, or pick a playlist from the list.</div>'; return; }
+      if (!state.videos.length) {
+        list.innerHTML = state.customPlaylist
+          ? '<div class="empty-queue"><strong>Custom playlist is empty</strong>Add video rows to its JSON file to use this playlist.</div>'
+          : '<div class="empty-queue"><strong>No playlist yet</strong>Use Save to keep a copy, or pick a playlist from the list.</div>';
+        return;
+      }
       if (!shown.length) { list.innerHTML = '<div class="empty-queue">' + (filter ? "No matches" : "Queue is empty") + "</div>"; return; }
       const nextPos = nextQueuePos(); list.innerHTML = "";
       shown.forEach(item => {
@@ -861,9 +871,11 @@
     }
     function applyPlaylist(data, name, restoreQueue) {
       const videos = normalizeVideos(data);
-      if (!videos.length) { showToast("That file did not contain any videos."); return false; }
+      const custom = data?.custom === true;
+      if (!videos.length && !custom) { showToast("That file did not contain any videos."); return false; }
       state.videos = videos; state.playlistName = name || "Playlist";
-      state.playlistUrl = playlistUrlFromData(data, name) || playlistUrlFromData(videos, name) || "";
+      state.customPlaylist = custom;
+      state.playlistUrl = custom ? "" : playlistUrlFromData(data, name) || playlistUrlFromData(videos, name) || "";
       state.unavailable = {}; state.warnDismissed = false; $("warn-banner").classList.remove("visible");
       if (!restoreQueue || !state.queue.length) createQueue();
       state.queue = state.queue.filter(i => i >= 0 && i < state.videos.length);
@@ -875,7 +887,7 @@
 
     function loadNamedPlaylist(name) {
       const blk = state.playlists[name];
-      if (!blk || !(blk.ids || []).length) { showToast("That playlist is not built in."); return; }
+      if (!blk || (!(blk.ids || []).length && blk.custom !== true)) { showToast("That playlist is not built in."); return; }
       restoreBlock(blk);
       state.playlistName = name;
       createQueue();

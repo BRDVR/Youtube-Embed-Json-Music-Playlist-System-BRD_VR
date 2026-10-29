@@ -1,10 +1,175 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="28" height="28">
+
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#5ca7ff"/>
-      <stop offset="1" stop-color="#1a52a3"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#72b9ff"/>
+      <stop offset=".28" stop-color="#438ff0"/>
+      <stop offset=".66" stop-color="#2468c5"/>
+      <stop offset="1" stop-color="#062768"/>
     </linearGradient>
+    <radialGradient id="glow" cx=".34" cy=".3" r=".85">
+      <stop offset="0" stop-color="#70bdff" stop-opacity=".4"/>
+      <stop offset="1" stop-color="#00235f" stop-opacity=".5"/>
+    </radialGradient>
+    <linearGradient id="facet" x1="0" y1="0" x2=".9" y2="1">
+      <stop offset="0" stop-color="#c0e4ff" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#3c8df0" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a0f5ff"/>
+      <stop offset=".5" stop-color="#43caff"/>
+      <stop offset="1" stop-color="#1680ff"/>
+    </linearGradient>
+    <linearGradient id="blueArc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8bd5ff"/>
+      <stop offset="1" stop-color="#1670ff"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c1e4ff" stop-opacity=".8"/>
+      <stop offset=".5" stop-color="#83bdff" stop-opacity=".25"/>
+      <stop offset="1" stop-color="#071f4c" stop-opacity=".7"/>
+    </linearGradient>
+    <linearGradient id="play" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#173c6c"/>
+      <stop offset=".55" stop-color="#071d40"/>
+      <stop offset="1" stop-color="#020c22"/>
+    </linearGradient>
+    <linearGradient id="playFacet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#65baff"/>
+      <stop offset=".55" stop-color="#2468a9"/>
+      <stop offset="1" stop-color="#12345c"/>
+    </linearGradient>
+    <clipPath id="tileClip">
+      <rect width="256" height="256" rx="54"/>
+    </clipPath>
   </defs>
-  <rect width="28" height="28" rx="9" fill="url(#g)"/>
-  <path d="M9 6.2v15.6L21 14 9 6.2z" fill="#041226"/>
+
+  <g clip-path="url(#tileClip)">
+    <!-- Blue gradient background -->
+    <rect width="256" height="256" fill="url(#bg)"/>
+    <rect width="256" height="256" fill="url(#glow)"/>
+
+    <!-- Angular geometric background facets -->
+    <path d="M0 0H164L76 77 0 111Z" fill="url(#facet)"/>
+    <path d="M256 0V94L196 128 256 174V256H148L210 174 145 109Z"
+          fill="#0b3b83" opacity=".17"/>
+    <path d="M0 170 65 128 119 256H0Z"
+          fill="#80bdff" opacity=".13"/>
+    <path d="M256 207 190 173 130 256H256Z"
+          fill="#071e4d" opacity=".25"/>
+    <path d="M0 0 103 0 0 72Z"
+          fill="#d5efff" opacity=".08"/>
+    <path d="M256 256H205L256 210Z"
+          fill="#031d50" opacity=".24"/>
+
+    <!-- Subtle circular field -->
+    <circle cx="128" cy="128" r="108"
+            fill="none" stroke="#a5ddff"
+            stroke-width=".8" opacity=".12"/>
+
+    <!-- Outer segmented orbital ring -->
+    <g fill="none" stroke-linecap="round">
+      <path d="M43 91 A96 96 0 0 1 98 38"
+            stroke="url(#blueArc)" stroke-width="2.3"/>
+      <path d="M124 33 A96 96 0 0 1 202 69"
+            stroke="#3d9bff" stroke-width="3.5" opacity=".9"/>
+      <path d="M215 87 A96 96 0 0 1 224 141"
+            stroke="url(#cyan)" stroke-width="2.4"/>
+      <path d="M218 164 A96 96 0 0 1 183 209"
+            stroke="#1670ee" stroke-width="4"/>
+      <path d="M161 220 A96 96 0 0 1 104 218"
+            stroke="url(#cyan)" stroke-width="2.7"/>
+      <path d="M82 209 A96 96 0 0 1 43 164"
+            stroke="#68cfff" stroke-width="2.2"/>
+      <path d="M34 143 A96 96 0 0 1 35 116"
+            stroke="#b2e8ff" stroke-width="1.6"/>
+    </g>
+
+    <!-- Middle ring with varied segment lengths -->
+    <g fill="none" stroke-linecap="round">
+      <path d="M56 91 A78 78 0 0 1 98 56"
+            stroke="#56b7ff" stroke-width="4.5" opacity=".8"/>
+      <path d="M120 49 A78 78 0 0 1 185 79"
+            stroke="url(#cyan)" stroke-width="7"/>
+      <path d="M201 98 A78 78 0 0 1 202 140"
+            stroke="#2387ff" stroke-width="4.5"/>
+      <path d="M190 162 A78 78 0 0 1 149 194"
+            stroke="url(#blueArc)" stroke-width="6"/>
+      <path d="M128 205 A78 78 0 0 1 78 183"
+            stroke="#46baff" stroke-width="5"/>
+      <path d="M62 166 A78 78 0 0 1 54 126"
+            stroke="#0b4da9" stroke-width="3.5"/>
+    </g>
+
+    <!-- Inner circular fragments -->
+    <g fill="none" stroke-linecap="round">
+      <path d="M79 88 A60 60 0 0 1 103 74"
+            stroke="#73caff" stroke-width="2.2" opacity=".8"/>
+      <path d="M140 70 A60 60 0 0 1 174 96"
+            stroke="#2189ff" stroke-width="3"/>
+      <path d="M185 117 A60 60 0 0 1 180 150"
+            stroke="url(#cyan)" stroke-width="2.8"/>
+      <path d="M164 170 A60 60 0 0 1 132 186"
+            stroke="#399cff" stroke-width="2.5"/>
+      <path d="M110 183 A60 60 0 0 1 84 164"
+            stroke="#4bcaff" stroke-width="3"/>
+      <path d="M72 143 A60 60 0 0 1 73 119"
+            stroke="#155fc7" stroke-width="2.5"/>
+    </g>
+
+    <!-- Small precision markers -->
+    <g fill="#c4e5ff">
+      <circle cx="98" cy="38" r="1.7"/>
+      <circle cx="202" cy="69" r="1.6"/>
+      <circle cx="224" cy="141" r="1.5"/>
+      <circle cx="183" cy="209" r="1.7"/>
+    </g>
+    <g fill="#0c3978">
+      <rect x="39" y="162" width="3" height="3" rx=".5"/>
+      <rect x="102" y="216" width="3" height="3" rx=".5"/>
+      <rect x="121" y="31" width="3" height="3" rx=".5"/>
+    </g>
+
+    <!-- Large play symbol shadow -->
+    <path d="M83 57 Q75 53 75 66 V190 Q75 202 86 196 L193 135 Q204 128 193 121Z"
+          fill="#00143a" opacity=".4" transform="translate(2 3)"/>
+
+    <!-- Main enlarged play triangle -->
+    <path d="M83 57 Q75 53 75 66 V190 Q75 202 86 196 L193 135 Q204 128 193 121Z"
+          fill="url(#play)"
+          stroke="#55baff" stroke-width="2"
+          stroke-linejoin="round"/>
+
+    <!-- Upper geometric facet -->
+    <path d="M83 59 L185 119 Q192 123 193 128 L82 105 V66 Q82 59 83 59Z"
+          fill="url(#playFacet)" opacity=".95"/>
+
+    <!-- Secondary highlight plane -->
+    <path d="M84 61 L161 106 184 120 193 128 166 122Z"
+          fill="#7acbff" opacity=".3"/>
+
+    <!-- Lower dark facet -->
+    <path d="M82 105 193 128 86 194 Q82 196 82 187Z"
+          fill="#020f2b" opacity=".88"/>
+
+    <!-- Precision internal seam -->
+    <path d="M82 105 193 128"
+          fill="none" stroke="#4c9fe8"
+          stroke-width="1" stroke-opacity=".85"/>
+
+    <!-- Edge highlights -->
+    <path d="M84 59 190 121"
+          fill="none" stroke="#b4eeff"
+          stroke-width="1.2" stroke-linecap="round" opacity=".95"/>
+    <path d="M190 135 86 195"
+          fill="none" stroke="#279bff"
+          stroke-width="1" stroke-linecap="round" opacity=".9"/>
+
+    <!-- Rounded-square border -->
+    <rect x=".8" y=".8" width="254.4" height="254.4" rx="53.2"
+          fill="none" stroke="url(#edge)" stroke-width="1.6"/>
+    <rect x="3" y="3" width="250" height="250" rx="50"
+          fill="none" stroke="#b6dcff"
+          stroke-opacity=".12" stroke-width=".5"/>
+  </g>
 </svg>
