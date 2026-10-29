@@ -2,155 +2,37 @@
   "name": "Simple",
   "url": "https://www.youtube.com/watch?v=mSLuJYtl89Y&list=PLJwylQo4S1r-jNert4JUPPc-OjZV4Es9B",
   "videos": [
-    [
-      "Lensko - Let's Go! | House | NCS - Copyright Free Music",
-      "mSLuJYtl89Y",
-      "NoCopyrightSounds"
-    ],
-    [
-      "bee.",
-      "LZTOfQiudx0",
-      "GroovyDominoes52 - Topic"
-    ],
-    [
-      "Kevin MacLeod: Aces High",
-      "E16yOc7-Chw",
-      "Kevin MacLeod Archive"
-    ],
-    [
-      "Meep City  Soundtrack - Bouncy",
-      "DQbEhEbGdQY",
-      "Sparky"
-    ],
-    [
-      "Surasshu - Eek! (True Highest Quality)",
-      "zQEP6kzuroI",
-      "Alzter"
-    ],
-    [
-      "Electric Daisies (scr)",
-      "LcVKysuGGfo",
-      "GlobeLime Du192247"
-    ],
-    [
-      "Bliss Boutique",
-      "Lb5Mfvnp9pU",
-      "Xploshi - Topic"
-    ],
-    [
-      "world without words",
-      "Bi5kyehmeaY",
-      "Nujabes - Topic"
-    ],
-    [
-      "Nintendo 3DS Nintendo Video Music",
-      "RQYh342H5ec",
-      "DDRPenguins72"
-    ],
-    [
-      "Levels (Original Version)",
-      "wDuoOapZ9Z0",
-      "Avicii - Topic"
-    ],
-    [
-      "Arcade Weekend",
-      "MMzjThziUMQ",
-      "Dr Music"
-    ],
-    [
-      "Protostar - New Horizons [Monstercat Release]",
-      "bJK1P1OVQ8Y",
-      "Monstercat Uncaged"
-    ],
-    [
-      "Solar Flares",
-      "NSYkYauXWoM",
-      "Vance Westlake - Topic"
-    ],
-    [
-      "Gym Tonic Groove",
-      "MzJtclj8MRQ",
-      "Sylvain Lux - Topic"
-    ],
-    [
-      "ParagonX9 - Infiltration",
-      "OUrV3OHd6-c",
-      "ParagonX9official"
-    ],
-    [
-      "doodle",
-      "AtXtXhZqc4s",
-      "Zachz Winner - Topic"
-    ],
-    [
-      "Achoo!",
-      "RGa0vDKwtuY",
-      "Tsundere Twintails - Topic"
-    ],
-    [
-      "Ooblets!",
-      "egVPfQeyFmc",
-      "Pedro Silva - Topic"
-    ],
-    [
-      "BANANA SHAKE (SPED UP)",
-      "sk4QhMsTlRA",
-      "HUS - Topic"
-    ],
-    [
-      "Friday Theme",
-      "1PkRWWuIG2E",
-      "Uglyburger0 - Topic"
-    ],
-    [
-      "Lunar Abyss",
-      "3fSu6NkFhIw",
-      "Lchavasse - Topic"
-    ],
-    [
-      "ねこあつめのテーマ",
-      "-aMbo_Sch0M",
-      "Ryo Shintani - Topic"
-    ],
-    [
-      "frog summer",
-      "4MBeRNMGNJs",
-      "LEON - Topic"
-    ],
-    [
-      "Craig McConnell - Paradise Falls",
-      "PB9j-QPG5d4",
-      "Working Roblox Audios [Archive]"
-    ],
-    [
-      "Ballons in the Desert, Co-Op 8",
-      "8vBgFQvdFcc",
-      "Calum Bowen - Topic"
-    ],
-    [
-      "Cloud 9",
-      "aRC29sr2P1s",
-      "Tobu - Topic"
-    ],
-    [
-      "Move Like This",
-      "zKJGxHvjcSI",
-      "Jules Gaia - Topic"
-    ],
-    [
-      "frog",
-      "lte7Y25OSmc",
-      "Joyful   - Topic"
-    ],
-    [
-      "The Mountain Village",
-      "dIOVnWfRFB0",
-      "Calum Bowen - Topic"
-    ],
-    [
-      "Bloom Theory - Recquiem OST",
-      "35PXH3gdQEE",
-      "RecQuiem | Official"
-    ]
+    ["Lensko - Let's Go! | House | NCS - Copyright Free Music","mSLuJYtl89Y","NoCopyrightSounds"],
+    ["bee.","LZTOfQiudx0","GroovyDominoes52 - Topic"],
+    ["Kevin MacLeod: Aces High","E16yOc7-Chw","Kevin MacLeod Archive"],
+    ["Meep City  Soundtrack - Bouncy","DQbEhEbGdQY","Sparky"],
+    ["Surasshu - Eek! (True Highest Quality)","zQEP6kzuroI","Alzter"],
+    ["Electric Daisies (scr)","LcVKysuGGfo","GlobeLime Du192247"],
+    ["Bliss Boutique","Lb5Mfvnp9pU","Xploshi - Topic"],
+    ["world without words","Bi5kyehmeaY","Nujabes - Topic"],
+    ["Nintendo 3DS Nintendo Video Music","RQYh342H5ec","DDRPenguins72"],
+    ["Levels (Original Version)","wDuoOapZ9Z0","Avicii - Topic"],
+    ["Arcade Weekend","MMzjThziUMQ","Dr Music"],
+    ["Protostar - New Horizons [Monstercat Release]","bJK1P1OVQ8Y","Monstercat Uncaged"],
+    ["Solar Flares","NSYkYauXWoM","Vance Westlake - Topic"],
+    ["Gym Tonic Groove","MzJtclj8MRQ","Sylvain Lux - Topic"],
+    ["ParagonX9 - Infiltration","OUrV3OHd6-c","ParagonX9official"],
+    ["doodle","AtXtXhZqc4s","Zachz Winner - Topic"],
+    ["Achoo!","RGa0vDKwtuY","Tsundere Twintails - Topic"],
+    ["Ooblets!","egVPfQeyFmc","Pedro Silva - Topic"],
+    ["BANANA SHAKE (SPED UP)","sk4QhMsTlRA","HUS - Topic"],
+    ["Friday Theme","1PkRWWuIG2E","Uglyburger0 - Topic"],
+    ["Lunar Abyss","3fSu6NkFhIw","Lchavasse - Topic"],
+    ["ねこあつめのテーマ","-aMbo_Sch0M","Ryo Shintani - Topic"],
+    ["frog summer","4MBeRNMGNJs","LEON - Topic"],
+    ["Craig McConnell - Paradise Falls","PB9j-QPG5d4","Working Roblox Audios [Archive]"],
+    ["Ballons in the Desert, Co-Op 8","8vBgFQvdFcc","Calum Bowen - Topic"],
+    ["Cloud 9","aRC29sr2P1s","Tobu - Topic"],
+    ["Move Like This","zKJGxHvjcSI","Jules Gaia - Topic"],
+    ["frog","lte7Y25OSmc","Joyful   - Topic"],
+    ["The Mountain Village","dIOVnWfRFB0","Calum Bowen - Topic"],
+    ["Bloom Theory - Recquiem OST","35PXH3gdQEE","RecQuiem | Official"],
+    ["ぴぽぴぽ","iRvkMzy4Gcg","Serani Poji - Topic"],
+    ["Chateau au Gateau!","1G0rKy43hm8","Seycara Orchestral - Topic"]
   ]
 }

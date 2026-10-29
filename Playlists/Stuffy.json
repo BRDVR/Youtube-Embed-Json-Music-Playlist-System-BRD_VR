@@ -2,115 +2,28 @@
   "name": "Stuffy",
   "url": "https://www.youtube.com/watch?v=CZYNRrsgSeY&list=PLvUB_9sO-gcvGBiFAEAHRKJBJLQOyHwbd",
   "videos": [
-    [
-      "Choose Your Fighter",
-      "CZYNRrsgSeY",
-      "Ava Max - Topic"
-    ],
-    [
-      "Unity",
-      "QEpc7F6sS4M",
-      "TheFatRat - Topic"
-    ],
-    [
-      "I'm Good (Blue)",
-      "uFLt7knYUek",
-      "David Guetta - Topic"
-    ],
-    [
-      "Glass Animals - Heat Waves (Official Video)",
-      "mRD0-GxqHVo",
-      "GlassAnimalsVEVO"
-    ],
-    [
-      "My Ordinary Life",
-      "MURua52_YPg",
-      "The Living Tombstone - Topic"
-    ],
-    [
-      "W&W - OIIA OIIA (Spinning Cat)",
-      "IxX_QHay02M",
-      "W&W"
-    ],
-    [
-      "CG5 - Forbidden Feeling (Official Music Video)",
-      "mTlfT4gw23E",
-      "CG5"
-    ],
-    [
-      "Pajama Sam - Babagaboosh Groove Song - Lyric Video",
-      "Hy5uir7QlLc",
-      "Pajama Sam #0"
-    ],
-    [
-      "Credits Closing Theme",
-      "7bywJmv8tvQ",
-      "Valve"
-    ],
-    [
-      "Hello Neighbor Song (Get Out)",
-      "ZEmU5-Bx63I",
-      "DAGames - Topic"
-    ],
-    [
-      "Betsy, Мария Янковская – Sigma Boy (Official Music Video)",
-      "ueNY30Cs8Lk",
-      "Бэтси Girl"
-    ],
-    [
-      "grandson - Blood // Water (Lyrics)",
-      "LsHYFQgQxpw",
-      "Cakes & Eclairs"
-    ],
-    [
-      "Kero Kero Bonito - Flamingo",
-      "rY-FJvRqK0E",
-      "Kero Kero Bonito"
-    ],
-    [
-      "Fly Away",
-      "HdNnJdd9ljY",
-      "TheFatRat"
-    ],
-    [
-      "Jaxomy x Agatino Romero x Raffaella Carrà – Pedro (Official Video)",
-      "HxL19VWL9TM",
-      "Jaxomy"
-    ],
-    [
-      "Running In The 90's",
-      "_Fxil2QY0wE",
-      "MAX COVERI - Topic"
-    ],
-    [
-      "I Can’t Fix You",
-      "gVdc-U8DzY0",
-      "CG5"
-    ],
-    [
-      "Dancin (Krono Remix)",
-      "LjtvF_UuRIU",
-      "Aaron Smith"
-    ],
-    [
-      "ХАБИБ - Чебурашка",
-      "VRgEO8YsoGY",
-      "ХАБИБ"
-    ],
-    [
-      "Love is in Danger (Extended)",
-      "x9N3SOyRYVA",
-      "Priscilla - Topic"
-    ],
-    [
-      "Save Me (Extended)",
-      "c8trSrT2cx8",
-      "LESLIE PARRISH - Topic"
-    ],
-    [
-      "How Do You Do",
-      "dTBeI0N6PKo",
-      "Tim Savey - Topic"
-    ]
+    ["Choose Your Fighter","CZYNRrsgSeY","Ava Max - Topic"],
+    ["Unity","QEpc7F6sS4M","TheFatRat - Topic"],
+    ["I'm Good (Blue)","uFLt7knYUek","David Guetta - Topic"],
+    ["Glass Animals - Heat Waves (Official Video)","mRD0-GxqHVo","GlassAnimalsVEVO"],
+    ["My Ordinary Life","MURua52_YPg","The Living Tombstone - Topic"],
+    ["W&W - OIIA OIIA (Spinning Cat)","IxX_QHay02M","W&W"],
+    ["CG5 - Forbidden Feeling (Official Music Video)","mTlfT4gw23E","CG5"],
+    ["Pajama Sam - Babagaboosh Groove Song - Lyric Video","Hy5uir7QlLc","Pajama Sam #0"],
+    ["Credits Closing Theme","7bywJmv8tvQ","Valve"],
+    ["Hello Neighbor Song (Get Out)","ZEmU5-Bx63I","DAGames - Topic"],
+    ["Betsy, Мария Янковская – Sigma Boy (Official Music Video)","ueNY30Cs8Lk","Бэтси Girl"],
+    ["grandson - Blood // Water (Lyrics)","LsHYFQgQxpw","Cakes & Eclairs"],
+    ["Kero Kero Bonito - Flamingo","rY-FJvRqK0E","Kero Kero Bonito"],
+    ["Fly Away","HdNnJdd9ljY","TheFatRat"],
+    ["Jaxomy x Agatino Romero x Raffaella Carrà – Pedro (Official Video)","HxL19VWL9TM","Jaxomy"],
+    ["Running In The 90's","_Fxil2QY0wE","MAX COVERI - Topic"],
+    ["Deleted video","C3QPtl4E_j8",""],
+    ["I Can’t Fix You","gVdc-U8DzY0","CG5"],
+    ["Dancin (Krono Remix)","LjtvF_UuRIU","Aaron Smith"],
+    ["ХАБИБ - Чебурашка","VRgEO8YsoGY","ХАБИБ"],
+    ["Love is in Danger (Extended)","x9N3SOyRYVA","Priscilla - Topic"],
+    ["Save Me (Extended)","c8trSrT2cx8","LESLIE PARRISH - Topic"],
+    ["How Do You Do","dTBeI0N6PKo","Tim Savey - Topic"]
   ]
 }

@@ -53,6 +53,7 @@
     button:hover { background: #242a33; color: var(--text); border-color: rgba(92, 167, 255, .32); }
     button:active { transform: translateY(1px); }
     button.active { background: var(--teal-soft); border-color: rgba(92, 167, 255, .45); color: var(--teal); }
+    button[hidden] { display: none; }
     button.icon-btn { width: var(--control-h); padding: 0; min-width: var(--control-h); }
     .titlebar {
       background: var(--header); backdrop-filter: blur(18px); border-bottom: 1px solid var(--line);
@@ -187,6 +188,7 @@
     dialog::backdrop { background: rgba(0,0,0,.72); }
     dialog h3 { margin: 0 0 8px; font-size: 16px; }
     dialog input { width: 100%; margin: 10px 0 14px; }
+    .playlist-link-actions { display: flex; justify-content: space-between; gap: 8px; }
     #drop-overlay {
       display: none; position: fixed; inset: 0; background: rgba(6, 16, 12, .72);
       border: 2px dashed var(--teal); z-index: 40; place-items: center;
@@ -293,10 +295,11 @@
   </header>
   <div class="toolbar">
     <select id="playlist-select" title="Built-in playlists"></select>
-    <button id="btn-hide-gone" class="active">Hide gone</button>
     <button id="btn-fullscreen">Fullscreen</button>
     <button id="btn-theme" title="Switch between modern and classic look">Classic</button>
+    <button id="btn-open-playlist" title="Show and copy this playlist's YouTube link">Playlist link</button>
     <button id="btn-project" title="Open GitHub repository">Project Page</button>
+    <button id="btn-check-live" title="Open the playlist checker">Check Live Playlists</button>
     <div class="search-wrap">
       <span>Search</span>
       <input id="search" type="search" placeholder="Title or number" autocomplete="off">
@@ -364,6 +367,14 @@
       </div>
     </div>
   </footer>
+  <dialog id="playlist-link-dialog" aria-labelledby="playlist-link-title">
+    <h3 id="playlist-link-title">Playlist link</h3>
+    <input id="playlist-url" type="text" readonly aria-label="YouTube playlist URL">
+    <div class="playlist-link-actions">
+      <button id="btn-copy-playlist-url" type="button">Copy link</button>
+      <button id="btn-close-playlist-link" type="button">Close</button>
+    </div>
+  </dialog>
   <div id="toast" role="status"></div>
 
   <script>
@@ -392,7 +403,7 @@
 
     const state = {
       videos: [], queue: [], queuePos: 0,
-      shuffle: true, loopCurrent: false, hideGone: true,
+      shuffle: true, loopCurrent: false,
       volume: 30, lastVolume: 30, muted: false, playbackRate: 1,
       currentTime: 0, duration: 0, playing: false,
       player: null, playerReady: false, seeking: false, search: "",
@@ -423,7 +434,6 @@
         if (typeof d.playbackRate === "number") state.playbackRate = d.playbackRate;
         if (typeof d.shuffle === "boolean") state.shuffle = d.shuffle;
         if (typeof d.loopCurrent === "boolean") state.loopCurrent = d.loopCurrent;
-        if (typeof d.hideGone === "boolean") state.hideGone = d.hideGone;
         if (typeof d.duration === "number") state.duration = d.duration;
         if (d.theme === "classic" || d.theme === "modern") state.theme = d.theme;
         if (d.playlistName) state.playlistName = d.playlistName;
@@ -436,7 +446,7 @@
       localStorage.setItem(STORE_KEY, JSON.stringify({
         volume: state.volume, lastVolume: state.lastVolume, muted: state.muted,
         playbackRate: state.playbackRate, shuffle: state.shuffle, loopCurrent: state.loopCurrent,
-        hideGone: state.hideGone, theme: state.theme,
+        theme: state.theme,
         playlistName: state.playlistName,
         queueIds: state.queue.map(i => state.videos[i] && state.videos[i].video_id).filter(Boolean),
         queuePos: state.queuePos,
@@ -469,7 +479,8 @@
       const toFetch = [];
       for (let i = 0; i < state.videos.length; i++) {
         const v = state.videos[i]; if (!v.video_id) continue;
-        if (state.titleCache[v.video_id]) continue;
+        const cached = state.titleCache[v.video_id];
+        if (cached?.title && cached?.author) continue;
         toFetch.push(i);
       }
       if (!toFetch.length) return;
@@ -621,7 +632,6 @@
       const c = findPlaylistId(state.videos); if (c) return playlistUrlFromId(c, state.videos[0]?.video_id);
       return "";
     }
-
     /* ── YouTube API ─────────────────────────────────────── */
     function loadYouTubeApi() {
       if (ytApiReady || window.YT?.Player) { ytApiReady = true; return; }
@@ -630,7 +640,6 @@
     }
     /* ── Queue ───────────────────────────────────────────── */
     function visibleQueue() {
-      if (!state.hideGone) return state.queue.map((orig, step) => ({ orig, step }));
       return state.queue
         .map((orig, step) => ({ orig, step }))
         .filter(item => !state.unavailable[state.videos[item.orig]?.video_id]);
@@ -645,7 +654,7 @@
     }
     function showGoneWarning() { if (state.warnDismissed) return; const n = Object.keys(state.unavailable).length; if (!n) return; $("warn-text").textContent = n + " video" + (n === 1 ? "" : "s") + " unavailable or deleted. Hidden from the queue."; $("warn-banner").classList.add("visible"); }
     function shuffleArray(arr) { const r = [...arr]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; }
-    function usableIndexes() { return state.videos.map((v, i) => i).filter(i => !state.hideGone || !state.unavailable[state.videos[i].video_id]); }
+    function usableIndexes() { return state.videos.map((v, i) => i).filter(i => !state.unavailable[state.videos[i].video_id]); }
     function queueIds() { return state.queue.map(i => state.videos[i]?.video_id).filter(Boolean); }
     function createQueue(preferIndex) {
       const indexes = usableIndexes();
@@ -679,6 +688,7 @@
       const cur = document.createElement("option"); cur.value = "__current"; cur.textContent = state.playlistName || "Current"; sel.appendChild(cur);
       names.forEach(name => { if (name === state.playlistName) return; const o = document.createElement("option"); o.value = name; o.textContent = name; sel.appendChild(o); });
       sel.value = "__current";
+      $("btn-open-playlist").disabled = !currentPlaylistUrl();
     }
     function renderNowPlaying() {
       const video = currentVideo();
@@ -757,7 +767,6 @@
       applyTheme();
       $("btn-shuffle").classList.toggle("active", state.shuffle);
       $("btn-loop").classList.toggle("active", state.loopCurrent);
-      $("btn-hide-gone").classList.toggle("active", state.hideGone);
       $("btn-mute").classList.toggle("active", state.muted || state.volume === 0);
       $("btn-mute").textContent = (state.muted || state.volume === 0) ? "Unmute" : "Mute";
       $("volume").value = String(volumeToSlider(state.volume));
@@ -886,10 +895,35 @@
       $("btn-prev").onclick = playPrev; $("btn-next").onclick = playNext; $("btn-play").onclick = togglePlay;
       $("btn-shuffle").onclick = toggleShuffle;
       $("btn-loop").onclick = () => { state.loopCurrent = !state.loopCurrent; applyChrome(); renderQueue(); schedulePersist(); };
-      $("btn-hide-gone").onclick = () => { state.hideGone = !state.hideGone; applyChrome(); renderQueue(); schedulePersist(); };
       $("btn-fullscreen").onclick = () => { const el = $("player-frame"); if (!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.(); };
       $("btn-mute").onclick = toggleMute;
       $("btn-open-yt").onclick = () => { const v = currentVideo(); if (v) window.open(youtubeUrl(v.video_id), "_blank", "noopener"); };
+      $("btn-open-playlist").onclick = () => {
+        const url = currentPlaylistUrl();
+        if (!url) { showToast("This playlist does not have a YouTube link."); return; }
+        $("playlist-url").value = url;
+        $("playlist-link-dialog").showModal();
+      };
+      $("btn-copy-playlist-url").onclick = async () => {
+        const input = $("playlist-url");
+        try {
+          if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+          await navigator.clipboard.writeText(input.value);
+        } catch (error) {
+          input.focus();
+          input.select();
+          try {
+            if (!document.execCommand("copy")) throw new Error("Copy command was rejected");
+          } catch (fallbackError) {
+            console.error("Could not copy playlist link", error, fallbackError);
+            showToast("Could not copy the link. Select it and copy it manually.");
+            return;
+          }
+        }
+        showToast("Playlist link copied.");
+      };
+      $("btn-close-playlist-link").onclick = () => $("playlist-link-dialog").close();
+      $("btn-check-live").onclick = () => { window.location.href = "Check.html"; };
       $("btn-theme").onclick = toggleTheme;
       $("btn-project").onclick = () => { window.location.href = "https://github.com/BRDVR/Youtube-Embed-Json-Music-Playlist-System-BRD_VR"; };
       $("speed").onchange = ev => { state.playbackRate = Number(ev.target.value) || 1; applyPlaybackRate(); schedulePersist(); };
