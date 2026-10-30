@@ -86,6 +86,10 @@
     .copy-row { margin: 8px 0 14px; }
     .report-details { margin: 16px 0 8px; border-top: 1px solid var(--line); padding-top: 12px; }
     .report-details summary { color: var(--blue); cursor: pointer; }
+    .review-list { display: grid; gap: 10px; margin: 12px 0; }
+    .review-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--text-2); }
+    .review-item input { margin-top: 4px; accent-color: var(--blue); }
+    .review-item.approved { border-color: rgba(92,167,255,.45); }
     .error { color: var(--danger); }
     .source { color: var(--muted); font-size: 12px; }
     [hidden] { display: none !important; }
@@ -102,11 +106,11 @@
   </header>
   <main>
     <section class="intro">
-      <p>Linked playlists are checked against their own YouTube playlist. Set <code>"custom": true</code> in a playlist JSON to skip the API and pass that file's fields and song rows through both ZIP exports without API rewriting or normalization. Replacement exports keep saved entries absent from the live list for review; both exports remove clear duplicate uploads that differ only by a trailing "- Topic" artist suffix.</p>
+      <p>Linked playlists are checked against their own YouTube playlist. Set <code>"custom": true</code> in a playlist JSON to skip the API and pass that file's fields and song rows through both ZIP exports unchanged. Duplicate IDs, possible same-song uploads, and saved entries absent from the API are kept and flagged for review; nothing is automatically removed.</p>
       <button id="run-check" type="button">Check All Playlists</button>
       <button id="download-zip" type="button" disabled>Download Replacement ZIP</button>
       <button id="full-restore" type="button" disabled>Full Restore ZIP</button>
-      <p>Full Restore exports only the entries returned by the API, in API order. For matching video IDs, it reuses saved titles and artists when present; otherwise it uses the API metadata. Entries not returned by the API are omitted. Clear duplicate uploads and repeated video IDs are removed, and exported artist names have a trailing "- Topic" removed.</p>
+      <p>Full Restore exports only the entries returned by the API, in API order. For matching video IDs, it reuses saved titles and artists when present; otherwise it uses the API metadata. Review and acknowledge flagged issues before either ZIP can download.</p>
     </section>
     <p id="summary" role="status" aria-live="polite">Ready to check playlists.</p>
     <section id="reports" aria-live="polite"></section>
@@ -120,6 +124,7 @@
       { name: "Stuffy", file: "Playlists/Stuffy.json" }
     ];
     let completedReports = [];
+    const reviewDecisions = new Map();
 
     function videoUrl(id) {
       return `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
@@ -138,55 +143,70 @@
       const artist = normalizedText(stripTopicSuffix(video.artist));
       return title && artist ? `${title}\u0000${artist}` : "";
     }
-    function deduplicateExportRows(rows, preferredIds = new Set()) {
-      const seenIds = new Set();
-      const uniqueRows = [];
-      let duplicateIdsRemoved = 0;
-      for (const row of rows) {
-        if (seenIds.has(row[1])) {
-          duplicateIdsRemoved += 1;
-          continue;
-        }
-        seenIds.add(row[1]);
-        uniqueRows.push([...row]);
-      }
-
-      const topicGroups = new Map();
-      for (let index = 0; index < uniqueRows.length; index += 1) {
-        const row = uniqueRows[index];
+    function valuesMatch(original, exported) {
+      if (Object.is(original, exported)) return true;
+      if (original === null || exported === null ||
+          typeof original !== "object" || typeof exported !== "object" ||
+          Array.isArray(original) !== Array.isArray(exported)) return false;
+      const originalKeys = Object.keys(original);
+      const exportedKeys = Object.keys(exported);
+      return originalKeys.length === exportedKeys.length &&
+        originalKeys.every(key => Object.hasOwn(exported, key) &&
+          valuesMatch(original[key], exported[key]));
+    }
+    function findDuplicateVideoIds(rows) {
+      const groups = new Map();
+      rows.forEach((row, index) => {
+        const id = row[1];
+        const entries = groups.get(id) || [];
+        entries.push({ index, row });
+        groups.set(id, entries);
+      });
+      return [...groups.entries()]
+        .filter(([, entries]) => entries.length > 1)
+        .map(([id, entries]) => ({ type: "duplicate-video-id", id, entries }));
+    }
+    function findTopicVariants(rows) {
+      const groups = new Map();
+      rows.forEach((row, index) => {
         const key = topicVariantKey({ title: row[0], artist: row[2] });
-        if (!key) continue;
-        const group = topicGroups.get(key) || { topic: [], regular: [] };
-        group[topicArtist(row[2]) ? "topic" : "regular"].push(index);
-        topicGroups.set(key, group);
-      }
-      const dropped = new Set();
-      let topicDuplicatesRemoved = 0;
-      let ambiguousTopicGroups = 0;
-      for (const group of topicGroups.values()) {
-        if (!group.topic.length || !group.regular.length) continue;
-        if (group.topic.length !== 1 || group.regular.length !== 1) {
-          ambiguousTopicGroups += 1;
-          continue;
-        }
-        const topicIndex = group.topic[0];
-        const regularIndex = group.regular[0];
-        const topicIsPreferred = preferredIds.has(uniqueRows[topicIndex][1]);
-        const regularIsPreferred = preferredIds.has(uniqueRows[regularIndex][1]);
-        const keepIndex = topicIsPreferred !== regularIsPreferred
-          ? (topicIsPreferred ? topicIndex : regularIndex)
-          : regularIndex;
-        dropped.add(keepIndex === topicIndex ? regularIndex : topicIndex);
-        topicDuplicatesRemoved += 1;
-      }
-
-      const result = uniqueRows
-        .filter((_, index) => !dropped.has(index))
-        .map(row => {
-          if (typeof row[2] === "string") row[2] = stripTopicSuffix(row[2]);
-          return row;
+        if (!key) return;
+        const group = groups.get(key) || { topic: [], regular: [] };
+        group[topicArtist(row[2]) ? "topic" : "regular"].push({ index, row });
+        groups.set(key, group);
+      });
+      return [...groups.values()]
+        .filter(group => group.topic.length && group.regular.length)
+        .map(group => ({ type: "possible-topic-variant", entries: [...group.regular, ...group.topic] }));
+    }
+    function makeReviewItems(report, sourceFingerprint) {
+      const items = [];
+      if (report.comparison?.notInLive.length) {
+        items.push({
+          key: `${sourceFingerprint}:missing-api-entries`,
+          label: `I reviewed ${report.comparison.notInLive.length} saved entr${report.comparison.notInLive.length === 1 ? "y" : "ies"} absent from the current API response and will keep them in the replacement export.`
         });
-      return { rows: result, duplicateIdsRemoved, topicDuplicatesRemoved, ambiguousTopicGroups };
+      }
+      for (const [format, rows] of [
+        ["Replacement", report.replacementRows],
+        ["Full Restore", report.restoreRows]
+      ]) {
+        const issueGroups = [
+          ...findDuplicateVideoIds(rows),
+          ...findTopicVariants(rows)
+        ];
+        issueGroups.forEach((group, index) => {
+          const entryNumbers = group.entries.map(entry => `#${entry.index + 1}`).join(", ");
+          const isIdGroup = group.type === "duplicate-video-id";
+          items.push({
+            key: `${sourceFingerprint}:${format}:${group.type}:${isIdGroup ? group.id : index}:${entryNumbers}`,
+            label: isIdGroup
+              ? `Keep all ${group.entries.length} ${format} rows with video ID ${group.id} (rows ${entryNumbers}).`
+              : `Keep all possible same-song Topic variants in the ${format} export (rows ${entryNumbers}).`
+          });
+        });
+      }
+      return items;
     }
     function compareVideos(savedVideos, liveVideos, allLiveVideos) {
       const savedIds = [...new Set(savedVideos.map(video => video.id))];
@@ -198,30 +218,19 @@
       const additions = liveVideos.filter(video => !savedSet.has(video.id));
       const notInLive = savedVideos.filter(video => !liveSet.has(video.id));
       const topicVariants = [];
-      const pairedSaved = new Set();
-      const pairedLive = new Set();
-      for (const liveVideo of additions) {
-        const candidates = savedVideos.filter(savedVideo =>
-          !pairedSaved.has(savedVideo.id) &&
-          topicVariantKey(savedVideo) &&
-          topicVariantKey(savedVideo) === topicVariantKey({
-            title: liveVideo.title,
-            artist: liveVideo.channelTitle
-          }) &&
-          topicArtist(savedVideo.artist) !== topicArtist(liveVideo.channelTitle)
-        );
-        if (candidates.length === 1) {
-          const savedVideo = candidates[0];
-          pairedSaved.add(savedVideo.id);
-          pairedLive.add(liveVideo.id);
-          topicVariants.push({ savedVideo, liveVideo });
+      for (const savedVideo of savedVideos) {
+        for (const liveVideo of allLiveVideos) {
+          const savedKey = topicVariantKey(savedVideo);
+          if (savedVideo.id !== liveVideo.id && savedKey &&
+              savedKey === topicVariantKey({ title: liveVideo.title, artist: liveVideo.channelTitle }) &&
+              topicArtist(savedVideo.artist) !== topicArtist(liveVideo.channelTitle)) {
+            topicVariants.push({ savedVideo, liveVideo });
+          }
         }
       }
-      const unmatchedSaved = notInLive.filter(video => !pairedSaved.has(video.id));
-      const unmatchedLive = additions.filter(video => !pairedLive.has(video.id));
       return {
-        additions: unmatchedLive,
-        notInLive: unmatchedSaved,
+        additions,
+        notInLive,
         topicVariants,
         commonOrderMatches: commonSavedOrder.join(",") === commonLiveOrder.join(",")
       };
@@ -324,8 +333,11 @@
       });
       if (playlist.custom === true) {
         const customJson = serializeJson(playlist) + "\n";
+        const customIntegrityValid = valuesMatch(playlist, JSON.parse(customJson));
+        if (!customIntegrityValid) throw new Error(`${file}: custom playlist value validation failed.`);
         return {
-          name, file, custom: true, savedVideos,
+          name, file, custom: true, savedVideos, originalPlaylist: playlist,
+          customIntegrityValid, reviewItems: [],
           replacementRows: playlist.videos, restoreRows: playlist.videos,
           replacementJson: customJson, restoreJson: customJson
         };
@@ -366,21 +378,17 @@
         inspectMetadata(savedVideos, available, live.videos),
         inspectAdditionMetadata(comparison.additions)
       ]);
-      const rowsById = new Map();
-      for (const video of savedVideos) if (!rowsById.has(video.id)) rowsById.set(video.id, video);
+      const savedById = new Map();
+      for (const video of savedVideos) {
+        const rows = savedById.get(video.id) || [];
+        rows.push(video);
+        savedById.set(video.id, rows);
+      }
       const gapsById = new Map(metadataGaps.map(gap => [gap.video.id, gap]));
       const additionMetadataById = new Map(additionMetadata.map(item => [item.id, item]));
       const replacementRows = [];
-      const includedIds = new Set();
-      const availableIds = new Set(available.map(video => video.id));
-      const replacementCandidateIds = [
-        ...available.map(video => video.id),
-        ...savedVideos.filter(video => !availableIds.has(video.id)).map(video => video.id)
-      ];
-      const replacementDuplicateIdsRemoved = replacementCandidateIds.length - new Set(replacementCandidateIds).size;
+      const usedSavedRows = new Set();
       const appendExisting = video => {
-        if (includedIds.has(video.id)) return;
-        includedIds.add(video.id);
         const row = [...video.row];
         const gap = gapsById.get(video.id);
         if (gap) {
@@ -390,57 +398,87 @@
         replacementRows.push(row);
       };
       for (const liveVideo of available) {
-        const savedVideo = rowsById.get(liveVideo.id);
+        const savedRows = savedById.get(liveVideo.id) || [];
+        const savedVideo = savedRows.find(video => !usedSavedRows.has(video));
         if (savedVideo) {
+          usedSavedRows.add(savedVideo);
           appendExisting(savedVideo);
         } else {
-          if (includedIds.has(liveVideo.id)) continue;
           const metadata = additionMetadataById.get(liveVideo.id);
           replacementRows.push([liveVideo.title, liveVideo.id, metadata?.artist || liveVideo.channelTitle || ""]);
-          includedIds.add(liveVideo.id);
         }
       }
       for (const savedVideo of savedVideos) {
-        if (!includedIds.has(savedVideo.id)) appendExisting(savedVideo);
+        if (!usedSavedRows.has(savedVideo)) appendExisting(savedVideo);
       }
+      const usedRestoreRows = new Set();
       const restoreCandidates = live.videos
         .slice()
         .sort((a, b) => a.n - b.n)
         .map(video => {
-          const saved = rowsById.get(video.id);
+          const saved = (savedById.get(video.id) || []).find(item => !usedRestoreRows.has(item));
           if (!saved) return [video.title, video.id, video.channelTitle || ""];
+          usedRestoreRows.add(saved);
           const row = [...saved.row];
           if (!String(row[0] || "").trim()) row[0] = video.title;
           if (!String(row[2] || "").trim()) row[2] = video.channelTitle || "";
           return row;
         });
-      const preferredIds = new Set(available.map(video => video.id));
-      const replacementDeduped = deduplicateExportRows(replacementRows, preferredIds);
-      const restoreDeduped = deduplicateExportRows(restoreCandidates, preferredIds);
-      const finalReplacementRows = replacementDeduped.rows;
-      const restoreRows = restoreDeduped.rows;
-      const replacementJson = serializeJson({ ...playlist, videos: finalReplacementRows }) + "\n";
+      const restoreRows = restoreCandidates;
+      const replacementJson = serializeJson({ ...playlist, videos: replacementRows }) + "\n";
       const restoreJson = serializeJson({ ...playlist, videos: restoreRows }) + "\n";
-      return {
+      const report = {
         name, file, listId, savedVideos, liveVideos: available, comparison, metadataGaps,
-        additionMetadata, replacementRows: finalReplacementRows, replacementJson,
-        duplicateIdsRemoved: replacementDuplicateIdsRemoved + replacementDeduped.duplicateIdsRemoved,
-        topicDuplicatesRemoved: replacementDeduped.topicDuplicatesRemoved,
-        ambiguousTopicGroups: replacementDeduped.ambiguousTopicGroups,
-        restoreRows, restoreJson,
-        restoreDuplicateIdsRemoved: restoreDeduped.duplicateIdsRemoved,
-        restoreTopicDuplicatesRemoved: restoreDeduped.topicDuplicatesRemoved,
-        restoreAmbiguousTopicGroups: restoreDeduped.ambiguousTopicGroups,
+        additionMetadata, replacementRows, replacementJson, restoreRows, restoreJson,
+        originalPlaylist: playlist,
         apiFetchedAt: typeof live.fetchedAt === "string" ? live.fetchedAt : "",
         apiCache: typeof live.cache === "string" ? live.cache : "",
         unavailableCount: live.videos.length - available.length
       };
+      const sourceFingerprint = JSON.stringify({ playlist, liveVideos: live.videos });
+      report.exportIntegrityValid =
+        valuesMatch({ ...playlist, videos: replacementRows }, JSON.parse(replacementJson)) &&
+        valuesMatch({ ...playlist, videos: restoreRows }, JSON.parse(restoreJson));
+      if (!report.exportIntegrityValid) throw new Error(`${file}: generated export value validation failed.`);
+      report.reviewItems = makeReviewItems(report, sourceFingerprint);
+      return report;
     }
     function makeElement(tag, text, className) {
       const element = document.createElement(tag);
       if (text) element.textContent = text;
       if (className) element.className = className;
       return element;
+    }
+    function reportIsApproved(report) {
+      return !report.error &&
+        (report.custom ? report.customIntegrityValid === true : report.exportIntegrityValid === true) &&
+        (report.reviewItems || []).every(item => reviewDecisions.get(item.key) === true);
+    }
+    function updateExportButtons() {
+      const ready = completedReports.length === PLAYLISTS.length &&
+        completedReports.every(reportIsApproved);
+      document.getElementById("download-zip").disabled = !ready;
+      document.getElementById("full-restore").disabled = !ready;
+    }
+    function renderReviewItems(report, card) {
+      if (!report.reviewItems?.length) return;
+      card.appendChild(makeElement("h3", "Required export review"));
+      const list = makeElement("div", "", "review-list");
+      for (const item of report.reviewItems) {
+        const label = makeElement("label", "", "review-item");
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = reviewDecisions.get(item.key) === true;
+        if (input.checked) label.classList.add("approved");
+        input.addEventListener("change", () => {
+          reviewDecisions.set(item.key, input.checked);
+          label.classList.toggle("approved", input.checked);
+          updateExportButtons();
+        });
+        label.append(input, makeElement("span", item.label));
+        list.appendChild(label);
+      }
+      card.appendChild(list);
     }
     const CRC_TABLE = (() => {
       const table = new Uint32Array(256);
@@ -521,13 +559,78 @@
       endView.setUint16(20, 0, true);
       return new Blob([...localParts, ...centralParts, end], { type: "application/zip" });
     }
+    async function readStoredZip(blob) {
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      const decoder = new TextDecoder("utf-8", { fatal: true });
+      const entries = new Map();
+      let offset = 0;
+      while (offset + 4 <= bytes.length && view.getUint32(offset, true) === 0x04034b50) {
+        if (offset + 30 > bytes.length) throw new Error("ZIP has a truncated local header.");
+        const flags = view.getUint16(offset + 6, true);
+        const method = view.getUint16(offset + 8, true);
+        const checksum = view.getUint32(offset + 14, true);
+        const compressedSize = view.getUint32(offset + 18, true);
+        const size = view.getUint32(offset + 22, true);
+        const nameLength = view.getUint16(offset + 26, true);
+        const extraLength = view.getUint16(offset + 28, true);
+        const nameStart = offset + 30;
+        const dataStart = nameStart + nameLength + extraLength;
+        const dataEnd = dataStart + compressedSize;
+        if ((flags & 0x0008) !== 0 || method !== 0 || compressedSize !== size ||
+            dataEnd > bytes.length) throw new Error("ZIP contains an unsupported or truncated entry.");
+        const name = decoder.decode(bytes.subarray(nameStart, nameStart + nameLength));
+        if (entries.has(name)) throw new Error(`ZIP contains duplicate path ${name}.`);
+        const data = bytes.subarray(dataStart, dataEnd);
+        if (crc32(data) !== checksum) throw new Error(`ZIP checksum validation failed for ${name}.`);
+        let value;
+        try {
+          value = JSON.parse(decoder.decode(data));
+        } catch (error) {
+          throw new Error(`ZIP entry ${name} is not valid UTF-8 JSON: ${error.message}`);
+        }
+        entries.set(name, value);
+        offset = dataEnd;
+      }
+      if (offset + 4 > bytes.length || view.getUint32(offset, true) !== 0x02014b50) {
+        throw new Error("ZIP central directory is missing.");
+      }
+      for (let index = 0; index < entries.size; index += 1) {
+        if (offset + 46 > bytes.length || view.getUint32(offset, true) !== 0x02014b50) {
+          throw new Error("ZIP central directory is invalid.");
+        }
+        const nameLength = view.getUint16(offset + 28, true);
+        const extraLength = view.getUint16(offset + 30, true);
+        const commentLength = view.getUint16(offset + 32, true);
+        const name = decoder.decode(bytes.subarray(offset + 46, offset + 46 + nameLength));
+        if (!entries.has(name)) throw new Error(`ZIP central directory references unexpected path ${name}.`);
+        offset += 46 + nameLength + extraLength + commentLength;
+      }
+      if (offset + 22 > bytes.length || view.getUint32(offset, true) !== 0x06054b50) {
+        throw new Error("ZIP end record is missing.");
+      }
+      return entries;
+    }
+    async function verifyExportZip(blob, jsonKey) {
+      const entries = await readStoredZip(blob);
+      if (entries.size !== completedReports.length) throw new Error("ZIP entry count does not match the playlists.");
+      for (const report of completedReports) {
+        if (!entries.has(report.file)) throw new Error(`ZIP is missing ${report.file}.`);
+        const expected = JSON.parse(report[jsonKey]);
+        const exported = entries.get(report.file);
+        if (!valuesMatch(expected, exported)) throw new Error(`ZIP data validation failed for ${report.file}.`);
+        if (report.custom && !valuesMatch(report.originalPlaylist, exported)) {
+          throw new Error(`Custom playlist integrity validation failed for ${report.file}.`);
+        }
+      }
+    }
     function downloadReplacementZip() {
       downloadPlaylistZip("replacementJson", "Playlist-Replacements.zip", "Replacement");
     }
     function downloadFullRestoreZip() {
       downloadPlaylistZip("restoreJson", "Playlist-Full-Restore.zip", "Full restore");
     }
-    function downloadPlaylistZip(jsonKey, filename, label) {
+    async function downloadPlaylistZip(jsonKey, filename, label) {
       const button = document.getElementById("download-zip");
       const summary = document.getElementById("summary");
       const fullRestoreButton = document.getElementById("full-restore");
@@ -537,10 +640,14 @@
         if (completedReports.length !== PLAYLISTS.length || completedReports.some(report => report.error)) {
           throw new Error("Check all playlists successfully before exporting.");
         }
+        if (!completedReports.every(reportIsApproved)) {
+          throw new Error("Review all flagged entries before exporting.");
+        }
         const blob = makeZip(completedReports.map(report => ({
           name: report.file,
           content: report[jsonKey]
         })));
+        await verifyExportZip(blob, jsonKey);
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -554,8 +661,7 @@
         console.error(`Could not create ${label.toLowerCase()} ZIP`, error);
         summary.textContent = `ZIP download failed: ${error.message}`;
       } finally {
-        button.disabled = completedReports.length !== PLAYLISTS.length;
-        fullRestoreButton.disabled = completedReports.length !== PLAYLISTS.length;
+        updateExportButtons();
       }
     }
     async function copyText(text, button, successMessage) {
@@ -593,25 +699,26 @@
         return card;
       }
       if (report.custom) {
-        card.appendChild(makeElement("p", "Custom/manual playlist. Its URL field is ignored; the JSON is copied unchanged to both ZIP exports so you can maintain its video rows yourself."));
+        card.appendChild(makeElement("p", "Custom/manual playlist. Its URL field is ignored. Recursive JSON value checks passed; its original fields, rows, and ordering are kept unchanged in both ZIP exports."));
         const preview = document.createElement("details");
         preview.className = "report-details";
         preview.appendChild(makeElement("summary", `Custom ZIP preview: ${report.savedVideos.length} manually maintained entries`));
         preview.appendChild(makeElement("pre", report.replacementJson));
         card.appendChild(preview);
+        renderReviewItems(report, card);
         return card;
       }
 
       const { comparison, metadataGaps, liveVideos, unavailableCount } = report;
       const needsReview = comparison.additions.length || comparison.notInLive.length ||
         comparison.topicVariants.length || !comparison.commonOrderMatches || metadataGaps.length ||
-        report.ambiguousTopicGroups || report.restoreAmbiguousTopicGroups;
+        report.reviewItems.length;
       let summary = needsReview
         ? `${report.savedVideos.length} in JSON; ${liveVideos.length} available live.`
         : `Matches live playlist (${liveVideos.length} available videos).`;
       if (comparison.additions.length) summary += ` ${comparison.additions.length} live ${comparison.additions.length === 1 ? "video is" : "videos are"} missing from this JSON.`;
-      if (comparison.notInLive.length) summary += ` ${comparison.notInLive.length} ${comparison.notInLive.length === 1 ? "JSON entry is" : "JSON entries are"} not in this live playlist.`;
-      if (comparison.topicVariants.length) summary += ` ${comparison.topicVariants.length} same-song Topic upload ${comparison.topicVariants.length === 1 ? "variant is" : "variants are"} collapsed in ZIP exports.`;
+      if (comparison.notInLive.length) summary += ` ${comparison.notInLive.length} ${comparison.notInLive.length === 1 ? "JSON entry is" : "JSON entries are"} absent from the current API response and require review.`;
+      if (comparison.topicVariants.length) summary += ` ${comparison.topicVariants.length} possible same-song Topic upload ${comparison.topicVariants.length === 1 ? "variant is" : "variants are"} flagged; all entries are kept.`;
       if (!comparison.commonOrderMatches) summary += " Shared videos appear in a different order.";
       if (metadataGaps.length) summary += ` ${metadataGaps.length} JSON ${metadataGaps.length === 1 ? "entry is" : "entries are"} missing title or artist metadata.`;
       if (unavailableCount) summary += ` ${unavailableCount} unavailable/deleted live ${unavailableCount === 1 ? "entry was" : "entries were"} ignored as additions.`;
@@ -633,7 +740,7 @@
         }
         const additionsById = new Map(report.additionMetadata.map(item => [item.id, item]));
         const rows = comparison.additions.map(video => {
-          const artist = stripTopicSuffix(additionsById.get(video.id)?.artist || video.channelTitle || "");
+          const artist = additionsById.get(video.id)?.artist || video.channelTitle || "";
           return `    [${JSON.stringify(video.title)},${JSON.stringify(video.id)},${JSON.stringify(artist)}]`;
         }).join(",\n");
         card.appendChild(makeElement("pre", rows));
@@ -643,20 +750,16 @@
         card.appendChild(copyButton);
       }
       if (comparison.notInLive.length) {
-        card.appendChild(makeElement("h3", `In ${report.file}, but absent from PlaylistDuration's playlist response`));
+        card.appendChild(makeElement("h3", `Absent from the current API response — review required`));
         const list = document.createElement("ul");
-        for (const video of comparison.notInLive) list.appendChild(makeElement("li", `${video.title || "Untitled video"} is present in this JSON but was not returned by the API (${video.id}).`));
+        for (const video of comparison.notInLive) list.appendChild(makeElement("li", `${video.title || "Untitled video"} is saved in this JSON but was not returned in the current API response (${video.id}). This does not confirm that it was deleted.`));
         card.appendChild(list);
       }
       if (comparison.topicVariants.length) {
         card.appendChild(makeElement("h3", "Same-song Topic upload variants"));
         const list = document.createElement("ul");
         for (const pair of comparison.topicVariants) {
-          const savedAlsoLive = liveVideos.some(video => video.id === pair.savedVideo.id);
-          const keptId = savedAlsoLive && !topicArtist(pair.savedVideo.artist)
-            ? pair.savedVideo.id
-            : pair.liveVideo.id;
-          list.appendChild(makeElement("li", `${pair.savedVideo.title} appears as "${pair.savedVideo.artist}" (${pair.savedVideo.id}) in JSON and "${pair.liveVideo.channelTitle}" (${pair.liveVideo.id}) in the API playlist. ZIP exports keep video ${keptId} and remove the trailing "- Topic" from artist names.`));
+          list.appendChild(makeElement("li", `${pair.savedVideo.title} appears as "${pair.savedVideo.artist}" (${pair.savedVideo.id}) in JSON and "${pair.liveVideo.channelTitle}" (${pair.liveVideo.id}) in the API playlist. This may be two uploads of the same song; both are kept until you decide otherwise outside this export.`));
         }
         card.appendChild(list);
       }
@@ -666,7 +769,7 @@
           const missing = [gap.missingTitle && "title", gap.missingArtist && "artist"].filter(Boolean).join(" and ");
           card.appendChild(makeElement("p", `JSON row #${gap.row} (${gap.video.id}) is missing ${missing}. Suggested title: ${gap.title ? JSON.stringify(gap.title) : "not found"}; artist: ${gap.artist ? JSON.stringify(gap.artist) : "not found"}.${gap.lookupError ? ` ${gap.lookupError}` : ""}`));
           if (gap.title || gap.artist) {
-            const row = `    [${JSON.stringify(gap.title)},${JSON.stringify(gap.video.id)},${JSON.stringify(stripTopicSuffix(gap.artist))}]`;
+            const row = `    [${JSON.stringify(gap.title)},${JSON.stringify(gap.video.id)},${JSON.stringify(gap.artist)}]`;
             card.appendChild(makeElement("pre", row));
             const copyButton = makeElement("button", `Copy row #${gap.row}`, "copy-row");
             copyButton.dataset.label = copyButton.textContent;
@@ -679,21 +782,22 @@
       preview.className = "report-details";
       const previewSummary = makeElement("summary", `Replacement preview: ${report.replacementRows.length} entries`);
       preview.appendChild(previewSummary);
-      const replacementDuplicateCount = report.duplicateIdsRemoved + report.topicDuplicatesRemoved;
-      const restoreDuplicateCount = report.restoreDuplicateIdsRemoved + report.restoreTopicDuplicatesRemoved;
+      const replacementDuplicateCount =
+        findDuplicateVideoIds(report.replacementRows).length + findTopicVariants(report.replacementRows).length;
+      const restoreDuplicateCount =
+        findDuplicateVideoIds(report.restoreRows).length + findTopicVariants(report.restoreRows).length;
       const previewText = [
         `${comparison.additions.length} live additions`,
         `${comparison.notInLive.length} saved entries not in the live playlist (kept at the end)`,
         `Shared entries ${comparison.commonOrderMatches ? "already match" : "will be reordered to match"} live order`,
-        `${metadataGaps.filter(gap => gap.missingTitle && gap.title || gap.missingArtist && gap.artist).length} metadata gap${metadataGaps.length === 1 ? "" : "s"} can be filled`
+        `${metadataGaps.filter(gap => gap.missingTitle && gap.title || gap.missingArtist && gap.artist).length} metadata gap${metadataGaps.length === 1 ? "" : "s"} can be filled`,
+        `${replacementDuplicateCount} replacement duplicate group${replacementDuplicateCount === 1 ? "" : "s"} flagged`
       ].join(" · ");
       preview.appendChild(makeElement("p", previewText));
-      preview.appendChild(makeElement("p", `Replacement removes ${replacementDuplicateCount} duplicate entr${replacementDuplicateCount === 1 ? "y" : "ies"}. Full restore: ${report.restoreRows.length} entries after removing ${restoreDuplicateCount} duplicate entr${restoreDuplicateCount === 1 ? "y" : "ies"}. API order is preserved, including unavailable entries; saved title/artist values are reused for matching IDs.`));
-      if (report.ambiguousTopicGroups || report.restoreAmbiguousTopicGroups) {
-        preview.appendChild(makeElement("p", `${Math.max(report.ambiguousTopicGroups, report.restoreAmbiguousTopicGroups)} possible Topic duplicate group(s) were left unchanged because more than one candidate matched. Review these entries manually.`));
-      }
+      preview.appendChild(makeElement("p", `No rows were removed or artist names normalized. Replacement keeps ${report.replacementRows.length} rows; Full Restore keeps ${report.restoreRows.length} API rows and has ${restoreDuplicateCount} duplicate group${restoreDuplicateCount === 1 ? "" : "s"} flagged. API order is preserved, including unavailable entries; saved title/artist values are reused for matching IDs.`));
       preview.appendChild(makeElement("pre", report.replacementJson));
       card.appendChild(preview);
+      renderReviewItems(report, card);
       const source = document.createElement("a");
       source.href = `https://playlistduration.com/playlist/${encodeURIComponent(report.listId)}`;
       source.target = "_blank";
@@ -725,15 +829,12 @@
           }
         }));
         const failed = reports.filter(report => report.error).length;
-        if (!failed) {
-          completedReports = reports;
-          downloadButton.disabled = false;
-          fullRestoreButton.disabled = false;
-        }
+        completedReports = reports;
+        updateExportButtons();
         const needsReview = reports.filter(report => !report.error && !report.custom && (
           report.comparison.additions.length || report.comparison.notInLive.length ||
           report.comparison.topicVariants.length || !report.comparison.commonOrderMatches ||
-          report.metadataGaps.length || report.ambiguousTopicGroups || report.restoreAmbiguousTopicGroups
+          report.metadataGaps.length || report.reviewItems.length
         )).length;
         const custom = reports.filter(report => !report.error && report.custom).length;
         const checked = reports.length - failed - custom;
@@ -742,6 +843,7 @@
       } finally {
         button.disabled = false;
         button.textContent = "Check All Playlists";
+        updateExportButtons();
       }
     }
 
