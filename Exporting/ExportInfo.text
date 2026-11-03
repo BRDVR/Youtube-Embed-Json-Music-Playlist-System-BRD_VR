@@ -1,0 +1,28 @@
+WHAT TO SELECT WHEN EXPORTING A PLAYLIST
+
+Repeat these steps for each playlist:
+
+1. On Check.html, copy that playlist's full YouTube URL.
+2. Open the JSON exporter and paste the URL into its playlist link box.
+3. Make sure the export includes these fields:
+   - Position
+   - Video ID
+   - Title
+   - Channel
+4. Choose JSON as the export format and download the file.
+5. Return to Check.html and add the downloaded JSON file. You can add files
+   one at a time or in batches; wait until all five playlists show "JSON added."
+
+The checker needs the playlist ID in the exported JSON to match each file to
+the right playlist. The exporter should include it from the playlist URL you
+pasted. Position preserves the playlist order.
+
+The playlist name at the top level of your JSON is always preserved; it is
+never replaced with a title from the exporter. Video titles are separate: when
+a video is already in your JSON, the checker can update its song title from
+the imported snapshot. New videos use the snapshot title.
+
+JSON exporter:
+https://zapkit.org/youtube/playlist-to-json
+
+This exporter is a third-party service; I do not own it.

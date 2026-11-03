@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Check Live Playlists</title>
+  <title>Check Playlist Snapshots</title>
   <link rel="icon" type="image/svg+xml" href="./BlueIcon.svg" sizes="any">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -63,6 +63,7 @@
     }
     .intro { margin-bottom: 18px; }
     .intro p { color: var(--text-2); line-height: 1.55; margin: 0 0 16px; }
+    .source-limit, #export-status { color: var(--muted) !important; font-size: 13px; }
     #run-check { background: var(--blue-soft); color: var(--blue); border-color: rgba(92,167,255,.4); font-weight: 600; }
     #summary { margin: 18px 0; color: var(--text-2); font-family: "IBM Plex Mono", monospace; }
     .report { margin-top: 14px; }
@@ -89,6 +90,11 @@
     .review-list { display: grid; gap: 10px; margin: 12px 0; }
     .review-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--text-2); }
     .review-item input { margin-top: 4px; accent-color: var(--blue); }
+    .snapshot-list { display: grid; gap: 8px; padding-left: 22px; color: var(--text-2); }
+    .snapshot-list li { padding-left: 4px; }
+    .snapshot-links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 3px; font-size: 13px; }
+    .snapshot-url { display: block; margin-top: 4px; color: var(--text); font: 12px/1.5 "IBM Plex Mono", monospace; overflow-wrap: anywhere; user-select: all; }
+    .snapshot-status { color: var(--muted); font-size: 13px; }
     .review-item.approved { border-color: rgba(92,167,255,.45); }
     .error { color: var(--danger); }
     .source { color: var(--muted); font-size: 12px; }
@@ -101,16 +107,22 @@
 </head>
 <body>
   <header>
-    <h1>Check Live Playlists</h1>
+    <h1>Check Playlist Snapshots</h1>
     <button id="back-to-player" type="button">Back to Music App</button>
   </header>
   <main>
     <section class="intro">
-      <p>Linked playlists are checked against their own YouTube playlist. Set <code>"custom": true</code> in a playlist JSON to skip the API and pass that file's fields and song rows through both ZIP exports unchanged. Duplicate IDs, possible same-song uploads, and saved entries absent from the API are kept and flagged for review; nothing is automatically removed.</p>
-      <button id="run-check" type="button">Check All Playlists</button>
+      <p>Copy each full YouTube playlist URL below and paste it into the JSON exporter to download a snapshot with playlist ID, video ID, title, and position. Add the JSON files here all at once or in separate batches; the checklist keeps track of files added on this page. The checker compares these independent snapshots with your saved playlists; it does not call PlaylistDuration or YouTube for playlist membership. Imported files are read locally and are not uploaded. Verify uncertain results on YouTube before using Full Restore.</p>
+      <h2>Playlist links and upload status</h2>
+      <ul id="playlist-snapshot-list" class="snapshot-list"><li>Loading playlist links…</li></ul>
+      <label for="snapshot-files">Add exported playlist JSON files (repeat to add more)</label>
+      <input id="snapshot-files" type="file" accept=".json,application/json" multiple disabled>
+      <p id="snapshot-selection" class="source" role="status">Loading linked playlists…</p>
+      <button id="run-check" type="button" disabled>Check All Playlists</button>
       <button id="download-zip" type="button" disabled>Download Replacement ZIP</button>
       <button id="full-restore" type="button" disabled>Full Restore ZIP</button>
-      <p>Full Restore exports only the entries returned by the API, in API order. For matching video IDs, it reuses saved titles and artists when present; otherwise it uses the API metadata. Review and acknowledge flagged issues before either ZIP can download.</p>
+      <p id="export-status" role="status">Run the check before exporting. Duplicate warnings will not block exports; rows are kept by default.</p>
+      <p>The playlist name in your JSON is always preserved. Replacement outputs snapshot entries in snapshot order, then appends saved rows that could not be paired with a snapshot occurrence. Full Restore follows every snapshot entry only, in snapshot order, and can omit extra saved rows. For matching video IDs, the imported snapshot may update the video title; new entries use the snapshot title. Only saved rows not represented by snapshot occurrences require your acknowledgment.</p>
     </section>
     <p id="summary" role="status" aria-live="polite">Ready to check playlists.</p>
     <section id="reports" aria-live="polite"></section>
@@ -125,6 +137,9 @@
     ];
     let completedReports = [];
     const reviewDecisions = new Map();
+    let linkedPlaylists = [];
+    const importedSnapshots = new Map();
+    let snapshotSetupError = "";
 
     function videoUrl(id) {
       return `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
@@ -180,50 +195,37 @@
         .map(group => ({ type: "possible-topic-variant", entries: [...group.regular, ...group.topic] }));
     }
     function makeReviewItems(report, sourceFingerprint) {
-      const items = [];
-      if (report.comparison?.notInLive.length) {
-        items.push({
-          key: `${sourceFingerprint}:missing-api-entries`,
-          label: `I reviewed ${report.comparison.notInLive.length} saved entr${report.comparison.notInLive.length === 1 ? "y" : "ies"} absent from the current API response and will keep them in the replacement export.`
-        });
-      }
-      for (const [format, rows] of [
-        ["Replacement", report.replacementRows],
-        ["Full Restore", report.restoreRows]
-      ]) {
-        const issueGroups = [
-          ...findDuplicateVideoIds(rows),
-          ...findTopicVariants(rows)
-        ];
-        issueGroups.forEach((group, index) => {
-          const entryNumbers = group.entries.map(entry => `#${entry.index + 1}`).join(", ");
-          const isIdGroup = group.type === "duplicate-video-id";
-          items.push({
-            key: `${sourceFingerprint}:${format}:${group.type}:${isIdGroup ? group.id : index}:${entryNumbers}`,
-            label: isIdGroup
-              ? `Keep all ${group.entries.length} ${format} rows with video ID ${group.id} (rows ${entryNumbers}).`
-              : `Keep all possible same-song Topic variants in the ${format} export (rows ${entryNumbers}).`
-          });
-        });
-      }
-      return items;
+      if (!report.comparison?.notInLive.length) return [];
+      return [{
+        key: `${sourceFingerprint}:unmatched-saved-rows`,
+        label: `I checked the YouTube playlist for the ${report.comparison.notInLive.length} saved row${report.comparison.notInLive.length === 1 ? "" : "s"} not represented in this imported snapshot. Replacement keeps them; Full Restore omits them to match the snapshot.`
+      }];
     }
     function compareVideos(savedVideos, liveVideos, allLiveVideos) {
       const savedIds = [...new Set(savedVideos.map(video => video.id))];
       const liveIds = [...new Set(liveVideos.map(video => video.id))];
       const savedSet = new Set(savedIds);
-      const liveSet = new Set(allLiveVideos.map(video => video.id));
+      const liveCounts = new Map();
+      for (const video of allLiveVideos) liveCounts.set(video.id, (liveCounts.get(video.id) || 0) + 1);
       const commonSavedOrder = savedIds.filter(id => liveIds.includes(id));
       const commonLiveOrder = liveIds.filter(id => savedSet.has(id));
       const additions = liveVideos.filter(video => !savedSet.has(video.id));
-      const notInLive = savedVideos.filter(video => !liveSet.has(video.id));
+      const notInLive = savedVideos.filter(video => {
+        const remaining = liveCounts.get(video.id) || 0;
+        if (remaining === 0) return true;
+        liveCounts.set(video.id, remaining - 1);
+        return false;
+      });
       const topicVariants = [];
+      const comparedTopicPairs = new Set();
       for (const savedVideo of savedVideos) {
         for (const liveVideo of allLiveVideos) {
           const savedKey = topicVariantKey(savedVideo);
-          if (savedVideo.id !== liveVideo.id && savedKey &&
+          const pairKey = [savedVideo.id, liveVideo.id].sort().join("\u0000");
+          if (savedVideo.id !== liveVideo.id && !comparedTopicPairs.has(pairKey) && savedKey &&
               savedKey === topicVariantKey({ title: liveVideo.title, artist: liveVideo.channelTitle }) &&
               topicArtist(savedVideo.artist) !== topicArtist(liveVideo.channelTitle)) {
+            comparedTopicPairs.add(pairKey);
             topicVariants.push({ savedVideo, liveVideo });
           }
         }
@@ -316,7 +318,135 @@
       }
       return results;
     }
-    async function loadPlaylist({ name, file }) {
+    function importedPlaylistId(snapshot) {
+      const candidates = [
+        snapshot.playlist?.id,
+        snapshot.playlist?.playlistId,
+        snapshot.playlistId,
+        snapshot.playlist_id
+      ];
+      const id = candidates.find(value => typeof value === "string" && value.trim());
+      if (id) return id.trim();
+      const url = snapshot.playlist?.url || snapshot.playlistUrl || snapshot.url;
+      if (typeof url === "string" && url.trim()) {
+        return new URL(url, "https://www.youtube.com").searchParams.get("list");
+      }
+      return "";
+    }
+    async function readImportedSnapshot(file) {
+      let data;
+      try {
+        data = JSON.parse(await file.text());
+      } catch (error) {
+        throw new Error(`${file.name}: could not read valid JSON (${error.message}).`);
+      }
+      if (!data || typeof data !== "object" || Array.isArray(data) ||
+          !Array.isArray(data.videos) || data.truncated === true || data.playlist?.truncated === true) {
+        throw new Error(`${file.name}: expected a complete playlist JSON export with a videos array.`);
+      }
+      const listId = importedPlaylistId(data);
+      if (!listId) throw new Error(`${file.name}: the export does not identify its YouTube playlist.`);
+      const linkedPlaylist = linkedPlaylists.find(playlist => playlist.listId === listId);
+      if (!linkedPlaylist) throw new Error(`${file.name}: playlist ID ${listId} is not one of this page's linked playlists.`);
+      const positions = new Set();
+      const videos = data.videos.map((video, index) => {
+        const id = video?.videoId ?? video?.id;
+        const position = video?.position;
+        if (!video || typeof id !== "string" || !id.trim() ||
+            typeof video.title !== "string" || !Number.isInteger(position) || position < 1 ||
+            positions.has(position)) {
+          throw new Error(`${file.name}: invalid video ID, title, or position in entry ${index + 1}. Export Position, Title, and Video ID fields.`);
+        }
+        positions.add(position);
+        return {
+          id: id.trim(),
+          title: video.title,
+          n: position,
+          channelTitle: [video.channelTitle, video.channel, video.artist, video.author]
+            .find(value => typeof value === "string") || ""
+        };
+      });
+      const orderedVideos = videos.slice().sort((a, b) => a.n - b.n);
+      if (orderedVideos.some((video, index) => video.n !== index + 1)) {
+        throw new Error(`${file.name}: video positions have gaps; export the complete playlist before checking.`);
+      }
+      return {
+        id: listId,
+        videos: orderedVideos,
+        sourceFile: file.name,
+        exportedAt: data.exportedAt || data.exported_at || data.playlist?.exportedAt || ""
+      };
+    }
+    function updateSnapshotChecklist() {
+      const list = document.getElementById("playlist-snapshot-list");
+      list.replaceChildren();
+      for (const playlist of linkedPlaylists) {
+        const item = document.createElement("li");
+        const heading = makeElement("strong", playlist.name);
+        const status = makeElement("span",
+          importedSnapshots.has(playlist.listId)
+            ? ` — JSON added (${importedSnapshots.get(playlist.listId).sourceFile})`
+            : " — waiting for JSON",
+          "snapshot-status");
+        const url = makeElement("code", playlist.url, "snapshot-url");
+        const links = makeElement("div", "", "snapshot-links");
+        const copyButton = makeElement("button", "Copy playlist URL");
+        copyButton.type = "button";
+        copyButton.dataset.label = copyButton.textContent;
+        copyButton.onclick = () => copyText(playlist.url, copyButton, "URL copied");
+        const exporterLink = makeElement("a", "Open JSON exporter");
+        exporterLink.href = "https://zapkit.org/youtube/playlist-to-json";
+        exporterLink.target = "_blank";
+        exporterLink.rel = "noopener";
+        links.append(copyButton, exporterLink);
+        item.append(heading, status, url, links);
+        list.appendChild(item);
+      }
+      const readyCount = linkedPlaylists.filter(playlist => importedSnapshots.has(playlist.listId)).length;
+      const complete = linkedPlaylists.length > 0 && readyCount === linkedPlaylists.length;
+      document.getElementById("snapshot-selection").textContent = snapshotSetupError ||
+        `${readyCount} of ${linkedPlaylists.length} linked playlist snapshots added${complete ? " — ready to check" : ". Add more files whenever you are ready."}`;
+      document.getElementById("run-check").disabled = !complete;
+      updateExportButtons();
+    }
+    async function initializeSnapshotChecklist() {
+      const loaded = await Promise.all(PLAYLISTS.map(async ({ name, file }) => {
+        const response = await fetch(new URL(file, document.baseURI));
+        if (!response.ok) throw new Error(`${file}: HTTP ${response.status}`);
+        const playlist = await response.json();
+        if (!playlist || playlist.name !== name || !Array.isArray(playlist.videos)) {
+          throw new Error(`Invalid playlist JSON in ${file}.`);
+        }
+        if (playlist.custom === true) return null;
+        if (typeof playlist.url !== "string" || !playlist.url.trim()) {
+          throw new Error(`${file} is not marked custom and has no YouTube playlist URL.`);
+        }
+        const listId = new URL(playlist.url).searchParams.get("list");
+        if (!listId) throw new Error(`${file} does not contain a YouTube playlist ID.`);
+        return { name, file, listId, url: `https://www.youtube.com/playlist?list=${encodeURIComponent(listId)}` };
+      }));
+      linkedPlaylists = loaded.filter(Boolean);
+      document.getElementById("snapshot-files").disabled = false;
+      updateSnapshotChecklist();
+    }
+    async function addImportedSnapshots(files) {
+      const errors = [];
+      for (const file of files) {
+        try {
+          const snapshot = await readImportedSnapshot(file);
+          importedSnapshots.set(snapshot.id, snapshot);
+        } catch (error) {
+          errors.push(error.message);
+        }
+      }
+      completedReports = [];
+      document.getElementById("reports").replaceChildren();
+      document.getElementById("summary").textContent = errors.length
+        ? `Some files were not added: ${errors.join(" ")}`
+        : "Snapshot files updated. Run the check when all playlists show JSON added.";
+      updateSnapshotChecklist();
+    }
+    async function loadPlaylist({ name, file }, importedSnapshots) {
       const localResponse = await fetch(new URL(file, document.baseURI));
       if (!localResponse.ok) throw new Error(`${file}: HTTP ${localResponse.status}`);
       const playlist = await localResponse.json();
@@ -347,30 +477,20 @@
       }
       const listId = new URL(playlist.url).searchParams.get("list");
       if (!listId) throw new Error(`${file} does not contain a YouTube playlist ID.`);
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-      let live;
-      try {
-        const liveResponse = await fetch(`https://playlistduration.com/api/v1/playlist/${encodeURIComponent(listId)}`, {
-          signal: controller.signal,
-          cache: "no-store"
-        });
-        if (!liveResponse.ok) throw new Error(`Playlist API returned HTTP ${liveResponse.status}.`);
-        live = await liveResponse.json();
-      } finally {
-        clearTimeout(timeout);
-      }
-      if (!live || live.id !== listId || !Array.isArray(live.videos) || live.truncated === true) {
-        throw new Error("The playlist API returned incomplete or unexpected data.");
-      }
+      const live = importedSnapshots.get(listId);
+      if (!live) throw new Error(`No imported JSON snapshot was selected for YouTube playlist ${listId}.`);
       const positions = new Set();
       for (const video of live.videos) {
         if (!video || typeof video.id !== "string" || !video.id.trim() ||
             typeof video.title !== "string" || !Number.isInteger(video.n) || video.n < 1 ||
             positions.has(video.n)) {
-          throw new Error("The playlist API returned an invalid video entry.");
+          throw new Error("The imported JSON snapshot contains an invalid video entry.");
         }
         positions.add(video.n);
+      }
+      const orderedLiveVideos = live.videos.slice().sort((a, b) => a.n - b.n);
+      if (orderedLiveVideos.some((video, index) => video.n !== index + 1)) {
+        throw new Error("The imported snapshot has gaps in its position numbers; refusing to build an export from a possibly incomplete list.");
       }
       const available = live.videos.filter(video => video.unavailable !== true).sort((a, b) => a.n - b.n);
       const comparison = compareVideos(savedVideos, available, live.videos);
@@ -388,11 +508,12 @@
       const additionMetadataById = new Map(additionMetadata.map(item => [item.id, item]));
       const replacementRows = [];
       const usedSavedRows = new Set();
-      const appendExisting = video => {
+      const appendExisting = (video, snapshotVideo) => {
         const row = [...video.row];
         const gap = gapsById.get(video.id);
+        if (snapshotVideo?.title.trim()) row[0] = snapshotVideo.title;
+        else if (!String(row[0] || "").trim() && gap?.title) row[0] = gap.title;
         if (gap) {
-          if (!String(row[0] || "").trim() && gap.title) row[0] = gap.title;
           if (!String(row[2] || "").trim() && gap.artist) row[2] = gap.artist;
         }
         replacementRows.push(row);
@@ -402,10 +523,10 @@
         const savedVideo = savedRows.find(video => !usedSavedRows.has(video));
         if (savedVideo) {
           usedSavedRows.add(savedVideo);
-          appendExisting(savedVideo);
+          appendExisting(savedVideo, liveVideo);
         } else {
           const metadata = additionMetadataById.get(liveVideo.id);
-          replacementRows.push([liveVideo.title, liveVideo.id, metadata?.artist || liveVideo.channelTitle || ""]);
+          replacementRows.push([liveVideo.title || metadata?.title || "", liveVideo.id, metadata?.artist || liveVideo.channelTitle || ""]);
         }
       }
       for (const savedVideo of savedVideos) {
@@ -420,7 +541,11 @@
           if (!saved) return [video.title, video.id, video.channelTitle || ""];
           usedRestoreRows.add(saved);
           const row = [...saved.row];
-          if (!String(row[0] || "").trim()) row[0] = video.title;
+          if (video.title.trim()) row[0] = video.title;
+          else if (!String(row[0] || "").trim()) {
+            const gap = gapsById.get(video.id);
+            if (gap?.title) row[0] = gap.title;
+          }
           if (!String(row[2] || "").trim()) row[2] = video.channelTitle || "";
           return row;
         });
@@ -431,9 +556,8 @@
         name, file, listId, savedVideos, liveVideos: available, comparison, metadataGaps,
         additionMetadata, replacementRows, replacementJson, restoreRows, restoreJson,
         originalPlaylist: playlist,
-        apiFetchedAt: typeof live.fetchedAt === "string" ? live.fetchedAt : "",
-        apiCache: typeof live.cache === "string" ? live.cache : "",
-        unavailableCount: live.videos.length - available.length
+        snapshotFile: live.sourceFile,
+        exportedAt: typeof live.exportedAt === "string" ? live.exportedAt : ""
       };
       const sourceFingerprint = JSON.stringify({ playlist, liveVideos: live.videos });
       report.exportIntegrityValid =
@@ -455,14 +579,27 @@
         (report.reviewItems || []).every(item => reviewDecisions.get(item.key) === true);
     }
     function updateExportButtons() {
-      const ready = completedReports.length === PLAYLISTS.length &&
+      const complete = completedReports.length === PLAYLISTS.length;
+      const failed = completedReports.some(report => report.error);
+      const pendingReviews = completedReports.reduce((count, report) =>
+        count + (report.reviewItems || []).filter(item => reviewDecisions.get(item.key) !== true).length, 0);
+      const ready = complete && !failed && pendingReviews === 0 &&
         completedReports.every(reportIsApproved);
       document.getElementById("download-zip").disabled = !ready;
       document.getElementById("full-restore").disabled = !ready;
+      const status = document.getElementById("export-status");
+      if (!complete) status.textContent = "Run the check before exporting. Duplicate warnings will not block exports; rows are kept by default.";
+      else if (failed) status.textContent = "At least one playlist check failed. Fix the issue and run the check again before exporting.";
+      else if (pendingReviews) status.textContent = `Review the imported snapshot for ${pendingReviews} saved-row warning${pendingReviews === 1 ? "" : "s"} before exporting. Duplicate warnings are informational and never require a keep-click.`;
+      else status.textContent = "Both ZIPs are ready. Duplicate rows are kept by default, and ZIP contents are verified before download.";
+    }
+    function summarizeSnapshotSource(reports) {
+      const linked = reports.filter(report => !report.error && !report.custom).length;
+      return `${linked} linked playlist${linked === 1 ? "" : "s"} checked against imported JSON snapshots; freshness depends on when those files were exported.`;
     }
     function renderReviewItems(report, card) {
       if (!report.reviewItems?.length) return;
-      card.appendChild(makeElement("h3", "Required export review"));
+      card.appendChild(makeElement("h3", "Review saved rows not represented in the imported snapshot"));
       const list = makeElement("div", "", "review-list");
       for (const item of report.reviewItems) {
         const label = makeElement("label", "", "review-item");
@@ -709,31 +846,26 @@
         return card;
       }
 
-      const { comparison, metadataGaps, liveVideos, unavailableCount } = report;
+      const { comparison, metadataGaps, liveVideos } = report;
       const needsReview = comparison.additions.length || comparison.notInLive.length ||
         comparison.topicVariants.length || !comparison.commonOrderMatches || metadataGaps.length ||
         report.reviewItems.length;
       let summary = needsReview
-        ? `${report.savedVideos.length} in JSON; ${liveVideos.length} available live.`
-        : `Matches live playlist (${liveVideos.length} available videos).`;
-      if (comparison.additions.length) summary += ` ${comparison.additions.length} live ${comparison.additions.length === 1 ? "video is" : "videos are"} missing from this JSON.`;
-      if (comparison.notInLive.length) summary += ` ${comparison.notInLive.length} ${comparison.notInLive.length === 1 ? "JSON entry is" : "JSON entries are"} absent from the current API response and require review.`;
+        ? `${report.savedVideos.length} in JSON; ${liveVideos.length} videos in the imported snapshot.`
+        : `Matches imported snapshot (${liveVideos.length} videos).`;
+      if (comparison.additions.length) summary += ` ${comparison.additions.length} snapshot ${comparison.additions.length === 1 ? "entry is" : "entries are"} missing from this JSON.`;
+      if (comparison.notInLive.length) summary += ` ${comparison.notInLive.length} saved ${comparison.notInLive.length === 1 ? "row is" : "rows are"} not represented in the imported snapshot and require review.`;
       if (comparison.topicVariants.length) summary += ` ${comparison.topicVariants.length} possible same-song Topic upload ${comparison.topicVariants.length === 1 ? "variant is" : "variants are"} flagged; all entries are kept.`;
       if (!comparison.commonOrderMatches) summary += " Shared videos appear in a different order.";
       if (metadataGaps.length) summary += ` ${metadataGaps.length} JSON ${metadataGaps.length === 1 ? "entry is" : "entries are"} missing title or artist metadata.`;
-      if (unavailableCount) summary += ` ${unavailableCount} unavailable/deleted live ${unavailableCount === 1 ? "entry was" : "entries were"} ignored as additions.`;
       card.appendChild(makeElement("p", summary));
-      if (report.apiFetchedAt) {
-        const fetchedAt = new Date(report.apiFetchedAt);
-        const fetchedText = Number.isNaN(fetchedAt.getTime()) ? report.apiFetchedAt : fetchedAt.toLocaleString();
-        const cacheNote = report.apiCache === "hit" ? " PlaylistDuration marked this response as cached." : "";
-        card.appendChild(makeElement("p", `Live comparison uses PlaylistDuration data last fetched ${fetchedText}.${cacheNote} Recent YouTube playlist edits may not appear in this snapshot.`));
-      }
+      const exportTime = report.exportedAt ? ` Export timestamp: ${report.exportedAt}.` : "";
+      card.appendChild(makeElement("p", `Snapshot source: imported JSON file "${report.snapshotFile}". The checker cannot verify when the source data was collected.${exportTime} This is not a direct confirmation from YouTube.`));
 
       if (comparison.additions.length) {
-        card.appendChild(makeElement("h3", `Live videos missing from ${report.file}`));
+        card.appendChild(makeElement("h3", `Snapshot entries missing from ${report.file}`));
         const positions = comparison.additions.map(video => `#${video.n}`).join(", ");
-        card.appendChild(makeElement("p", `Added in live playlist positions ${positions}. Artist names are suggested from YouTube metadata when available; otherwise the field is blank.`));
+        card.appendChild(makeElement("p", `Found in imported snapshot positions ${positions}. Artist names are suggested from YouTube metadata when available; otherwise the field is blank.`));
         const failedMetadataLookups = report.additionMetadata.filter(item => item.lookupError).length;
         if (failedMetadataLookups) {
           card.appendChild(makeElement("p", `${failedMetadataLookups} addition metadata lookup${failedMetadataLookups === 1 ? " failed" : "s failed"}; affected artist fields will be blank.`));
@@ -750,16 +882,16 @@
         card.appendChild(copyButton);
       }
       if (comparison.notInLive.length) {
-        card.appendChild(makeElement("h3", `Absent from the current API response — review required`));
+        card.appendChild(makeElement("h3", `Saved JSON rows not represented in the imported snapshot — review required`));
         const list = document.createElement("ul");
-        for (const video of comparison.notInLive) list.appendChild(makeElement("li", `${video.title || "Untitled video"} is saved in this JSON but was not returned in the current API response (${video.id}). This does not confirm that it was deleted.`));
+        for (const video of comparison.notInLive) list.appendChild(makeElement("li", `${video.title || "Untitled video"} (${video.id}) is not represented by an occurrence in the imported snapshot. This does not confirm that the video was deleted; it can also flag an extra repeated saved row.`));
         card.appendChild(list);
       }
       if (comparison.topicVariants.length) {
         card.appendChild(makeElement("h3", "Same-song Topic upload variants"));
         const list = document.createElement("ul");
         for (const pair of comparison.topicVariants) {
-          list.appendChild(makeElement("li", `${pair.savedVideo.title} appears as "${pair.savedVideo.artist}" (${pair.savedVideo.id}) in JSON and "${pair.liveVideo.channelTitle}" (${pair.liveVideo.id}) in the API playlist. This may be two uploads of the same song; both are kept until you decide otherwise outside this export.`));
+          list.appendChild(makeElement("li", `${pair.savedVideo.title} appears as "${pair.savedVideo.artist}" (${pair.savedVideo.id}) in JSON and "${pair.liveVideo.channelTitle}" (${pair.liveVideo.id}) in the imported snapshot. This is a possible match, not a confirmed duplicate. This warning removes nothing; compare the linked uploads before changing the playlist.`));
         }
         card.appendChild(list);
       }
@@ -787,32 +919,42 @@
       const restoreDuplicateCount =
         findDuplicateVideoIds(report.restoreRows).length + findTopicVariants(report.restoreRows).length;
       const previewText = [
-        `${comparison.additions.length} live additions`,
-        `${comparison.notInLive.length} saved entries not in the live playlist (kept at the end)`,
-        `Shared entries ${comparison.commonOrderMatches ? "already match" : "will be reordered to match"} live order`,
+        `${comparison.additions.length} snapshot additions`,
+        `${comparison.notInLive.length} saved rows not represented in the imported snapshot (kept at the end)`,
+        `Shared entries ${comparison.commonOrderMatches ? "already match" : "will be reordered to match"} snapshot order`,
         `${metadataGaps.filter(gap => gap.missingTitle && gap.title || gap.missingArtist && gap.artist).length} metadata gap${metadataGaps.length === 1 ? "" : "s"} can be filled`,
         `${replacementDuplicateCount} replacement duplicate group${replacementDuplicateCount === 1 ? "" : "s"} flagged`
       ].join(" · ");
       preview.appendChild(makeElement("p", previewText));
-      preview.appendChild(makeElement("p", `No rows were removed or artist names normalized. Replacement keeps ${report.replacementRows.length} rows; Full Restore keeps ${report.restoreRows.length} API rows and has ${restoreDuplicateCount} duplicate group${restoreDuplicateCount === 1 ? "" : "s"} flagged. API order is preserved, including unavailable entries; saved title/artist values are reused for matching IDs.`));
+      const replacementIdGroups = findDuplicateVideoIds(report.replacementRows).length;
+      const replacementTopicGroups = findTopicVariants(report.replacementRows).length;
+      preview.appendChild(makeElement("p",       `The playlist name from your JSON is preserved. Video titles for matching rows use the imported snapshot title when available. No rows were automatically removed or artist names normalized. Replacement keeps ${report.replacementRows.length} saved/snapshot rows. It contains ${replacementIdGroups} repeated-ID group${replacementIdGroups === 1 ? "" : "s"} and ${replacementTopicGroups} possible Topic-variant group${replacementTopicGroups === 1 ? "" : "s"}; these are informational and do not block export. Full Restore keeps ${report.restoreRows.length} snapshot rows (${restoreDuplicateCount} duplicate/variant groups); any additional saved rows not represented in the snapshot are listed above and require review. Snapshot order is preserved.`));
       preview.appendChild(makeElement("pre", report.replacementJson));
       card.appendChild(preview);
       renderReviewItems(report, card);
       const source = document.createElement("a");
-      source.href = `https://playlistduration.com/playlist/${encodeURIComponent(report.listId)}`;
+      source.href = "https://zapkit.org/youtube/playlist-to-json";
       source.target = "_blank";
       source.rel = "noopener";
-      source.textContent = "Playlist data via PlaylistDuration";
+      source.textContent = "Open JSON exporter";
       card.appendChild(makeElement("p", "", "source")).appendChild(source);
+      const youtubeSource = document.createElement("a");
+      youtubeSource.href = `https://www.youtube.com/playlist?list=${encodeURIComponent(report.listId)}`;
+      youtubeSource.target = "_blank";
+      youtubeSource.rel = "noopener";
+      youtubeSource.textContent = "Verify on YouTube";
+      card.appendChild(makeElement("p", "", "source")).appendChild(youtubeSource);
       return card;
     }
     async function runCheck() {
       const button = document.getElementById("run-check");
       const downloadButton = document.getElementById("download-zip");
       const fullRestoreButton = document.getElementById("full-restore");
+      const snapshotInput = document.getElementById("snapshot-files");
       const summary = document.getElementById("summary");
       const reportsElement = document.getElementById("reports");
       button.disabled = true;
+      snapshotInput.disabled = true;
       downloadButton.disabled = true;
       fullRestoreButton.disabled = true;
       completedReports = [];
@@ -820,9 +962,13 @@
       reportsElement.replaceChildren();
       summary.textContent = `Checking all ${PLAYLISTS.length} playlists…`;
       try {
+        if (linkedPlaylists.some(playlist => !importedSnapshots.has(playlist.listId))) {
+          summary.textContent = "Add a JSON snapshot for every linked playlist before checking.";
+          return;
+        }
         const reports = await Promise.all(PLAYLISTS.map(async playlist => {
           try {
-            return await loadPlaylist(playlist);
+            return await loadPlaylist(playlist, importedSnapshots);
           } catch (error) {
             console.error(`Could not check ${playlist.name}`, error);
             return { ...playlist, error: error.name === "AbortError" ? "The check timed out." : error.message };
@@ -831,27 +977,47 @@
         const failed = reports.filter(report => report.error).length;
         completedReports = reports;
         updateExportButtons();
-        const needsReview = reports.filter(report => !report.error && !report.custom && (
+        const withDifferences = reports.filter(report => !report.error && !report.custom && (
           report.comparison.additions.length || report.comparison.notInLive.length ||
           report.comparison.topicVariants.length || !report.comparison.commonOrderMatches ||
           report.metadataGaps.length || report.reviewItems.length
         )).length;
         const custom = reports.filter(report => !report.error && report.custom).length;
         const checked = reports.length - failed - custom;
-        summary.textContent = `Checked ${checked} linked playlists: ${checked - needsReview} match, ${needsReview} need review, ${custom} custom pass-through, ${failed} failed.`;
+        summary.textContent = `Checked ${checked} linked playlists: ${checked - withDifferences} match, ${withDifferences} with differences, ${custom} custom pass-through, ${failed} failed. ${summarizeSnapshotSource(reports)} This is not a direct confirmation from YouTube.`;
         for (const report of reports) reportsElement.appendChild(renderReport(report));
       } finally {
         button.disabled = false;
+        snapshotInput.disabled = false;
         button.textContent = "Check All Playlists";
         updateExportButtons();
       }
     }
 
     document.getElementById("back-to-player").onclick = () => { window.location.href = "index.html"; };
+    document.getElementById("snapshot-files").addEventListener("change", async event => {
+      const input = event.target;
+      const files = [...input.files];
+      input.value = "";
+      if (!files.length) return;
+      input.disabled = true;
+      try {
+        await addImportedSnapshots(files);
+      } finally {
+        input.disabled = false;
+      }
+    });
     document.getElementById("run-check").onclick = runCheck;
     document.getElementById("download-zip").onclick = downloadReplacementZip;
     document.getElementById("full-restore").onclick = downloadFullRestoreZip;
-    runCheck();
+    initializeSnapshotChecklist().catch(error => {
+      snapshotSetupError = `Could not load playlist links: ${error.message}`;
+      document.getElementById("snapshot-selection").textContent = snapshotSetupError;
+      document.getElementById("playlist-snapshot-list").replaceChildren(
+        makeElement("li", snapshotSetupError, "error")
+      );
+      document.getElementById("summary").textContent = snapshotSetupError;
+    });
   </script>
 </body>
 </html>

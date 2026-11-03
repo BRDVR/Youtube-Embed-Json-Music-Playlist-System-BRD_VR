@@ -9,6 +9,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <style>
+    @property --teal { syntax: "<color>"; inherits: true; initial-value: #5ca7ff; }
+    @property --teal-dark { syntax: "<color>"; inherits: true; initial-value: #1a52a3; }
+    @property --teal-soft { syntax: "<color>"; inherits: true; initial-value: #5ca7ff29; }
+    @property --teal-border { syntax: "<color>"; inherits: true; initial-value: #5ca7ff73; }
+    @property --teal-focus { syntax: "<color>"; inherits: true; initial-value: #5ca7ff52; }
+    @property --teal-glow { syntax: "<color>"; inherits: true; initial-value: #5ca7ff52; }
+    @property --control-ink { syntax: "<color>"; inherits: true; initial-value: #041226; }
+    @property --next { syntax: "<color>"; inherits: true; initial-value: #9fd0ff; }
+    @property --next-soft { syntax: "<color>"; inherits: true; initial-value: #9fd0ff24; }
+    @property --next-border { syntax: "<color>"; inherits: true; initial-value: #9fd0ff38; }
     :root {
       --bg: #0b0d10;
       --pane: #161a20;
@@ -21,21 +31,43 @@
       --muted: #8b95a3;
       --teal: #5ca7ff;
       --teal-soft: rgba(92, 167, 255, .16);
+      --teal-border: rgba(92, 167, 255, .45);
+      --teal-focus: rgba(92, 167, 255, .32);
+      --teal-dark: #1a52a3;
+      --teal-glow: rgba(92, 167, 255, .32);
+      --control-ink: #041226;
       --next: #9fd0ff;
       --next-soft: rgba(159, 208, 255, .14);
+      --next-border: rgba(159, 208, 255, .2);
       --warn-bg: #2a2412;
       --warn-text: #f3e2a0;
       --danger: #ff8b8b;
       --shadow: 0 18px 50px rgba(0, 0, 0, .38);
       --radius: 16px;
       --control-h: 36px;
+      --color-transition-duration: 650ms;
+      --queue-width: 360px;
+      --compact-queue-width: 300px;
+      --stacked-player-min-height: 220px;
+      --stacked-queue-min-height: 280px;
+      transition: --teal var(--color-transition-duration) ease,
+        --teal-dark var(--color-transition-duration) ease,
+        --teal-soft var(--color-transition-duration) ease,
+        --teal-border var(--color-transition-duration) ease,
+        --teal-focus var(--color-transition-duration) ease,
+        --teal-glow var(--color-transition-duration) ease,
+        --control-ink var(--color-transition-duration) ease,
+        --next var(--color-transition-duration) ease,
+        --next-soft var(--color-transition-duration) ease,
+        --next-border var(--color-transition-duration) ease;
     }
+    @media (prefers-reduced-motion: reduce) { :root { transition: none; } }
     * { box-sizing: border-box; }
     html, body {
       margin: 0; height: 100%;
       background:
-        radial-gradient(1200px 500px at 12% -10%, rgba(92, 167, 255, .10), transparent 50%),
-        radial-gradient(900px 420px at 100% 0%, rgba(88, 120, 255, .08), transparent 46%),
+        radial-gradient(1200px 500px at 12% -10%, color-mix(in srgb, var(--teal) 10%, transparent), transparent 50%),
+        radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, var(--teal-dark) 12%, transparent), transparent 46%),
         var(--bg);
       color: var(--text);
       font-family: Outfit, "Segoe UI", sans-serif;
@@ -50,9 +82,9 @@
       gap: 6px; transition: background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease;
       white-space: nowrap;
     }
-    button:hover { background: #242a33; color: var(--text); border-color: rgba(92, 167, 255, .32); }
+    button:hover { background: #242a33; color: var(--text); border-color: var(--teal-border); }
     button:active { transform: translateY(1px); }
-    button.active { background: var(--teal-soft); border-color: rgba(92, 167, 255, .45); color: var(--teal); }
+    button.active { background: var(--teal-soft); border-color: var(--teal-border); color: var(--teal); }
     button[hidden] { display: none; }
     button.icon-btn { width: var(--control-h); padding: 0; min-width: var(--control-h); }
     .titlebar {
@@ -62,9 +94,9 @@
     .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .logo-mark {
       width: 28px; height: 28px; border-radius: 9px;
-      background: linear-gradient(160deg, #5ca7ff, #1a52a3);
-      display: grid; place-items: center; color: #041226; flex-shrink: 0;
-      box-shadow: 0 0 18px rgba(92, 167, 255, .32);
+      background: linear-gradient(160deg, var(--teal), var(--teal-dark));
+      display: grid; place-items: center; color: var(--control-ink); flex-shrink: 0;
+      box-shadow: 0 0 18px var(--teal-glow);
     }
     .titlebar h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
     .titlebar .status {
@@ -77,19 +109,20 @@
       padding: 6px 10px 8px; display: flex; align-items: center; gap: 6px;
       flex-wrap: wrap; flex-shrink: 0;
     }
-    .toolbar select, .search-wrap input, dialog input, #speed {
+    .toolbar select, dialog input, #speed {
       background: #0e1116; color: var(--text); border: 1px solid var(--line-strong);
       border-radius: 999px; padding: 0 12px; height: var(--control-h);
     }
     .toolbar select { min-width: 180px; color: var(--teal); }
-    .search-wrap {
-      margin-left: auto; display: flex; align-items: center; gap: 8px;
-      color: var(--muted); font-size: 12px; font-weight: 500;
+    #speed-control[hidden] { display: none; }
+    .queue-search { padding: 0 12px 10px; flex-shrink: 0; }
+    .queue-search input {
+      display: block; width: 100%; height: var(--control-h); padding: 0 12px;
+      background: #0e1116; color: var(--text); border: 1px solid var(--line-strong); border-radius: 999px;
     }
-    .search-wrap input { width: 240px; }
-    .search-wrap input:focus, .toolbar select:focus, dialog input:focus,
+    .queue-search input:focus, .toolbar select:focus, dialog input:focus,
     #progress:focus, #volume:focus, #speed:focus {
-      outline: 2px solid rgba(92, 167, 255, .32); outline-offset: 1px;
+      outline: 2px solid var(--teal-focus); outline-offset: 1px;
     }
     #warn-banner {
       display: none; margin: 0; background: var(--warn-bg); color: var(--warn-text);
@@ -99,7 +132,7 @@
     #warn-banner.visible { display: flex; }
     #warn-banner button { height: 28px; padding: 0 10px; }
     .layout {
-      flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 360px;
+      flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) var(--queue-width);
       min-height: 0; gap: 0; padding: 0;
     }
     .player-column, .queue-panel {
@@ -112,7 +145,7 @@
     #player { width: 100%; height: 100%; background: #000; }
     .now-playing-card {
       display: grid; grid-template-columns: 72px 1fr auto; gap: 8px; align-items: center;
-      padding: 8px 10px; background: linear-gradient(180deg, #1a1f27, #14181e);
+      padding: 8px 10px; background: linear-gradient(180deg, color-mix(in srgb, var(--teal-dark) 34%, var(--pane)), var(--pane));
       border-top: 1px solid var(--line); flex-shrink: 0;
     }
     .now-playing-card img {
@@ -142,8 +175,8 @@
       transition: background .15s ease, border-color .15s ease;
     }
     .q-item:hover { background: rgba(255,255,255,.04); }
-    .q-item.playing { background: var(--teal-soft); border-color: rgba(92, 167, 255, .22); }
-    .q-item.next-up { background: var(--next-soft); border-color: rgba(214, 255, 106, .16); }
+    .q-item.playing { background: var(--teal-soft); border-color: var(--teal-border); }
+    .q-item.next-up { background: var(--next-soft); border-color: var(--next-border); }
     .q-item.gone { opacity: .45; }
     .q-item.dragging { opacity: .45; }
     .q-step { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
@@ -155,6 +188,16 @@
     .q-remove { width: 28px; height: 28px; min-width: 28px; padding: 0; opacity: 0; background: transparent; border: 0; color: var(--muted); }
     .q-item:hover .q-remove, .q-item:focus-within .q-remove { opacity: 1; }
     .q-remove:hover { color: var(--danger); }
+    .hide-queue-thumbnails .queue-cols,
+    .queue-thumbnails-hidden .queue-cols { grid-template-columns: 44px minmax(0, 1fr) 32px; }
+    .hide-queue-thumbnails .queue-cols span:nth-child(2),
+    .hide-queue-thumbnails .queue-cols span:nth-child(4),
+    .queue-thumbnails-hidden .queue-cols span:nth-child(2),
+    .queue-thumbnails-hidden .queue-cols span:nth-child(4),
+    .hide-queue-thumbnails .q-item img,
+    .queue-thumbnails-hidden .q-item img { display: none; }
+    .hide-queue-thumbnails .q-item,
+    .queue-thumbnails-hidden .q-item { grid-template-columns: 44px minmax(0, 1fr) 32px; }
     .empty-queue { color: var(--muted); padding: 36px 20px; text-align: center; line-height: 1.5; }
     .empty-queue strong { display: block; color: var(--text); margin-bottom: 8px; font-size: 15px; }
     .bottom-bar {
@@ -168,21 +211,22 @@
       -webkit-appearance: none; appearance: none; width: 100%; height: 6px;
       border-radius: 999px; background: #2a313b; border: 0; outline: none;
     }
+    #progress { background: linear-gradient(to right, var(--next) 0%, var(--next) var(--progress, 0%), #ffffff25 var(--progress, 0%), #ffffff25 100%); }
+    #volume { background: linear-gradient(to right, var(--teal) 0%, var(--teal) var(--volume-progress, 90%), #ffffff25 var(--volume-progress, 90%), #ffffff25 100%); }
     #progress::-webkit-slider-thumb, #volume::-webkit-slider-thumb {
       -webkit-appearance: none; width: 14px; height: 14px; background: var(--teal);
-      border: 0; border-radius: 50%; cursor: pointer; box-shadow: 0 0 0 4px rgba(92, 167, 255, .18);
+      border: 0; border-radius: 50%; cursor: pointer; box-shadow: 0 0 0 4px var(--teal-soft);
     }
     .controls-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .transport { display: flex; align-items: center; gap: 6px; }
     .transport button { min-width: 44px; height: 38px; }
-    #btn-play { min-width: 88px; font-weight: 700; background: var(--teal); color: #062016; border-color: transparent; }
-    #btn-play:hover { background: #73ffc9; color: #062016; }
+    #btn-play { min-width: 88px; font-weight: 700; background: var(--teal); color: var(--control-ink); border-color: transparent; }
+    #btn-play:hover { background: color-mix(in srgb, var(--teal) 82%, white); color: var(--control-ink); }
     .volume-wrap, .speed-wrap { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 500; }
     .volume-wrap { min-width: 188px; }
     #volume { width: 108px; }
     #speed { width: 72px; padding: 0 8px; color: var(--teal); }
     #vol-label { width: 40px; font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--teal); font-variant-numeric: tabular-nums; }
-    .keys-hint { color: var(--muted); font-size: 11px; max-width: 280px; }
     .hidden-file { display: none; }
     dialog { background: #171b21; color: var(--text); border: 1px solid var(--line-strong); border-radius: 18px; padding: 18px; width: min(400px, 92vw); box-shadow: var(--shadow); }
     dialog::backdrop { background: rgba(0,0,0,.72); }
@@ -203,22 +247,41 @@
     }
     #toast.visible { opacity: 1; transform: none; }
     @media (max-width: 980px) {
-      body { overflow: auto; height: auto; min-height: 100vh; }
-      .layout { grid-template-columns: 1fr; }
-      .player-frame { min-height: 220px; aspect-ratio: 16 / 9; flex: none; }
-      .queue-panel { min-height: 280px; }
-      .keys-hint { display: none; }
-      .search-wrap { margin-left: 0; width: 100%; }
-      .search-wrap input { width: 100%; }
-      .titlebar { flex-wrap: wrap; }
-      .titlebar .status { max-width: 100%; margin-left: 0; }
-      .controls-row { flex-wrap: wrap; }
+      body:not(.responsive-ready) { overflow: auto; height: auto; min-height: 100vh; }
+      body:not(.responsive-ready) .layout { grid-template-columns: 1fr; }
+      body:not(.responsive-ready) .player-frame { min-height: 220px; aspect-ratio: 16 / 9; flex: none; }
+      body:not(.responsive-ready) .queue-panel { min-height: 280px; }
+      body:not(.responsive-ready) .titlebar { flex-wrap: wrap; }
+      body:not(.responsive-ready) .titlebar .status { max-width: 100%; margin-left: 0; }
+      body:not(.responsive-ready) .controls-row { flex-wrap: wrap; }
     }
+    body.is-stacked { overflow: auto; height: auto; min-height: 100vh; }
+    body.is-stacked .layout { grid-template-columns: minmax(0, 1fr); flex: none; }
+    body.is-stacked .player-frame { min-height: var(--stacked-player-min-height); aspect-ratio: 16 / 9; flex: none; }
+    body.is-stacked .queue-panel { min-height: var(--stacked-queue-min-height); }
+    body.is-compact-width .layout { grid-template-columns: minmax(0, 1fr) var(--compact-queue-width); }
+    body.is-compact-width .queue-cols,
+    body.is-compact-width .q-item { grid-template-columns: 34px 46px minmax(0, 1fr) 28px; }
+    body.is-compact-width .q-item img { width: 40px; height: 23px; }
+    body.is-compact-width .controls-row { flex-wrap: wrap; justify-content: center; }
+    body.is-compact-width .volume-wrap { min-width: 0; }
+    body.is-compact-width #volume { width: 88px; }
+    body.is-short-viewport { overflow: auto; height: auto; min-height: 100vh; }
+    body.is-short-viewport .titlebar { padding-top: 5px; padding-bottom: 5px; }
+    body.is-short-viewport .toolbar { padding-top: 4px; padding-bottom: 4px; }
+    body.is-short-viewport .queue-head { padding-top: 7px; padding-bottom: 6px; }
+    body.is-short-viewport .queue-search { padding-bottom: 6px; }
+    body.is-short-viewport .bottom-bar { padding-top: 5px; padding-bottom: 5px; }
+    body.is-short-viewport .progress-row { margin-bottom: 5px; }
+    body.is-short-viewport .transport button { height: 30px; }
+    body.is-compact-width.hide-queue-thumbnails .queue-cols,
+    body.is-compact-width.hide-queue-thumbnails .q-item,
+    body.is-compact-width.queue-thumbnails-hidden .queue-cols,
+    body.is-compact-width.queue-thumbnails-hidden .q-item { grid-template-columns: 34px minmax(0, 1fr) 28px; }
     html[data-theme="classic"] {
       --bg: #121212; --pane: #161616; --pane-2: #242424; --header: #1a1a1a;
       --line: #000; --line-strong: #3a3a3a; --text: #d8d8d8; --text-2: #cfcfcf;
-      --muted: #7a8898; --teal: #5ca7ff; --teal-soft: #0d1a2e; --next: #9fd0ff;
-      --next-soft: #0c1622; --warn-bg: #2a2208; --warn-text: #e6d48a;
+      --muted: #7a8898; --warn-bg: #2a2208; --warn-text: #e6d48a;
       --shadow: none; --radius: 1px; --control-h: 26px;
     }
     html[data-theme="classic"] html, html[data-theme="classic"],
@@ -230,28 +293,28 @@
       border-left-color: #444; color: #cfcfcf; padding: 5px 10px; height: auto;
       min-height: 26px; border-radius: 1px; text-transform: uppercase; letter-spacing: .04em;
     }
-    html[data-theme="classic"] button:hover { background: #2c2c2c; color: var(--teal); border-color: #3a3a3a; }
+    html[data-theme="classic"] button:hover { background: #2c2c2c; color: var(--teal); border-color: var(--teal); }
     html[data-theme="classic"] button.active {
-      background: #0d1a2e; border-color: #1a52a3; color: var(--teal);
-      box-shadow: inset 0 0 8px rgba(92, 167, 255, .18);
+      background: var(--teal-soft); border-color: var(--teal); color: var(--teal);
+      box-shadow: inset 0 0 8px var(--teal-glow);
     }
     html[data-theme="classic"] .titlebar { background: #1a1a1a; backdrop-filter: none; border-bottom: 1px solid #000; padding: 6px 10px; }
     html[data-theme="classic"] .logo-mark { width: 18px; height: 18px; border-radius: 1px; box-shadow: none; }
     html[data-theme="classic"] .titlebar h1 { font-size: 15px; font-weight: 700; letter-spacing: .12em; color: var(--teal); }
     html[data-theme="classic"] .titlebar .status { margin-left: auto; font-family: "Share Tech Mono", monospace; background: transparent; border: 0; border-radius: 0; padding: 0; color: var(--muted); }
     html[data-theme="classic"] .toolbar { background: #1c1c1c; border-bottom: 1px solid #000; padding: 6px 8px; gap: 6px; }
-    html[data-theme="classic"] .toolbar select, html[data-theme="classic"] .search-wrap input,
+    html[data-theme="classic"] .toolbar select, html[data-theme="classic"] .queue-search input,
     html[data-theme="classic"] dialog input, html[data-theme="classic"] #speed {
       background: #0d0d0d; color: var(--teal); border: 1px solid #333; border-radius: 1px; height: 26px; font-family: "Share Tech Mono", monospace;
     }
-    html[data-theme="classic"] .search-wrap { text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+    html[data-theme="classic"] .queue-search input { width: 100%; }
     html[data-theme="classic"] #warn-banner { margin: 0; border-radius: 0; border: 0; border-bottom: 1px solid #000; padding: 5px 10px; }
-    html[data-theme="classic"] .layout { gap: 0; padding: 0; grid-template-columns: minmax(0, 1fr) 360px; }
+    html[data-theme="classic"] .layout { gap: 0; padding: 0; grid-template-columns: minmax(0, 1fr) var(--queue-width); }
     html[data-theme="classic"] .player-column, html[data-theme="classic"] .queue-panel { background: #000; border: 0; border-radius: 0; box-shadow: none; }
     html[data-theme="classic"] .player-column { border-right: 1px solid #000; }
     html[data-theme="classic"] .queue-panel { background: #161616; border-left: 1px solid #000; }
     html[data-theme="classic"] .player-frame { box-shadow: inset 0 0 0 1px #222; }
-    html[data-theme="classic"] .now-playing-card { grid-template-columns: 72px 1fr auto; gap: 8px; padding: 8px 10px; background: #141414; border-top: 1px solid #000; box-shadow: inset 0 1px 0 #2a2a2a; }
+    html[data-theme="classic"] .now-playing-card { grid-template-columns: 72px 1fr auto; gap: 8px; padding: 8px 10px; background: linear-gradient(180deg, color-mix(in srgb, var(--teal-dark) 34%, var(--pane)), var(--pane)); border-top: 1px solid #000; box-shadow: inset 0 1px 0 #2a2a2a; }
     html[data-theme="classic"] .now-playing-card img { width: 72px; height: 40px; border-radius: 0; border: 1px solid #333; }
     html[data-theme="classic"] .now-meta .label, html[data-theme="classic"] .now-meta .sub,
     html[data-theme="classic"] .queue-head .count, html[data-theme="classic"] .q-step,
@@ -260,27 +323,92 @@
     html[data-theme="classic"] .now-meta h2 { margin: 1px 0; font-size: 16px; }
     html[data-theme="classic"] .queue-head { padding: 7px 10px; background: #1a1a1a; border-bottom: 1px solid #000; }
     html[data-theme="classic"] .queue-head h3 { color: var(--teal); }
-    html[data-theme="classic"] .queue-cols { padding: 4px 8px; background: #101010; color: #5ca7ff; border-bottom: 1px solid #000; }
+    html[data-theme="classic"] .queue-cols { padding: 4px 8px; background: #101010; color: var(--teal); border-bottom: 1px solid #000; }
     html[data-theme="classic"] .queue-list { padding: 0; }
     html[data-theme="classic"] .q-item { grid-template-columns: 44px 54px 1fr 32px; padding: 4px 8px; border-radius: 0; margin: 0; border: 0; border-bottom: 1px solid #1e1e1e; }
     html[data-theme="classic"] .q-item:nth-child(even) { background: #141414; }
     html[data-theme="classic"] .q-item:hover { background: #242424; }
-    html[data-theme="classic"] .q-item.playing { background: #0c2418; box-shadow: inset 3px 0 0 var(--teal); border-color: transparent; }
-    html[data-theme="classic"] .q-item.next-up { background: #1a220c; box-shadow: inset 3px 0 0 var(--next); border-color: transparent; }
+    html[data-theme="classic"] .q-item.playing { background: var(--teal-soft); box-shadow: inset 3px 0 0 var(--teal); border-color: transparent; }
+    html[data-theme="classic"] .q-item.next-up { background: var(--next-soft); box-shadow: inset 3px 0 0 var(--next); border-color: transparent; }
     html[data-theme="classic"] .q-item img { border-radius: 0; border: 1px solid #2a2a2a; }
     html[data-theme="classic"] .q-title, html[data-theme="classic"] .q-orig { padding-left: 8px; }
     html[data-theme="classic"] .bottom-bar { margin: 0; background: linear-gradient(#222, #161616); border: 0; border-top: 1px solid #000; border-radius: 0; box-shadow: inset 0 1px 0 #333; padding: 8px 10px 7px; }
-    html[data-theme="classic"] #progress, html[data-theme="classic"] #volume { height: 8px; border-radius: 0; background: #0a0a0a; border: 1px solid #333; }
-    html[data-theme="classic"] #progress::-webkit-slider-thumb, html[data-theme="classic"] #volume::-webkit-slider-thumb { width: 10px; height: 16px; border-radius: 0; background: var(--teal); border: 1px solid #0a5; box-shadow: 0 0 6px rgba(92, 167, 255, .5); }
-    html[data-theme="classic"] .time { text-shadow: 0 0 6px rgba(92, 167, 255, .35); }
+    html[data-theme="classic"] #progress, html[data-theme="classic"] #volume { height: 8px; border-radius: 0; border: 1px solid #333; }
+    html[data-theme="classic"] #progress::-webkit-slider-thumb, html[data-theme="classic"] #volume::-webkit-slider-thumb { width: 10px; height: 16px; border-radius: 0; background: var(--teal); border: 1px solid var(--teal-dark); box-shadow: 0 0 6px var(--teal-glow); }
+    html[data-theme="classic"] .time { text-shadow: 0 0 6px var(--teal-glow); }
     html[data-theme="classic"] .transport button { min-width: 40px; height: 30px; }
-    html[data-theme="classic"] #btn-play { min-width: 58px; background: #1a1a1a; color: var(--teal); border-color: #3a3a3a; }
-    html[data-theme="classic"] #btn-play:hover { background: #2c2c2c; color: var(--teal); }
+    html[data-theme="classic"] #btn-play { min-width: 58px; background: var(--teal); color: var(--control-ink); border-color: var(--teal); }
+    html[data-theme="classic"] #btn-play:hover { background: color-mix(in srgb, var(--teal) 82%, white); color: var(--control-ink); }
     html[data-theme="classic"] .volume-wrap, html[data-theme="classic"] .speed-wrap { text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
     html[data-theme="classic"] dialog { background: #1a1a1a; border: 1px solid #333; border-radius: 1px; box-shadow: none; }
     html[data-theme="classic"] dialog h3 { color: var(--teal); font-size: 14px; }
     html[data-theme="classic"] #toast { right: 10px; bottom: 10px; background: #1a1a1a; border: 1px solid #333; border-radius: 1px; }
     html[data-theme="classic"] #drop-overlay { border-radius: 0; }
+    body.is-stacked .controls-row { flex-wrap: wrap; justify-content: center; }
+    body.is-stacked .transport { flex-wrap: wrap; justify-content: center; }
+    html[data-theme="classic"] body.is-stacked .layout { grid-template-columns: minmax(0, 1fr); }
+    html[data-theme="classic"] body.is-stacked .player-column { border-right: 0; }
+    html[data-theme="classic"] body.is-stacked .queue-panel { border-left: 0; }
+    html[data-theme="classic"] body.is-compact-width .layout {
+      grid-template-columns: minmax(0, 1fr) var(--compact-queue-width);
+    }
+    html[data-theme="classic"] body.is-compact-width .queue-cols,
+    html[data-theme="classic"] body.is-compact-width .q-item {
+      grid-template-columns: 34px 46px minmax(0, 1fr) 28px;
+    }
+    html[data-theme="classic"] body.is-compact-width .q-item img { width: 40px; height: 23px; }
+    html[data-theme="classic"] body.hide-queue-thumbnails .queue-cols,
+    html[data-theme="classic"] body.hide-queue-thumbnails .q-item,
+    html[data-theme="classic"] body.queue-thumbnails-hidden .queue-cols,
+    html[data-theme="classic"] body.queue-thumbnails-hidden .q-item {
+      grid-template-columns: 44px minmax(0, 1fr) 32px;
+    }
+    html[data-theme="classic"] body.is-compact-width.hide-queue-thumbnails .queue-cols,
+    html[data-theme="classic"] body.is-compact-width.hide-queue-thumbnails .q-item {
+      grid-template-columns: 34px minmax(0, 1fr) 28px;
+    }
+    html[data-theme="classic"] body.is-compact-width.queue-thumbnails-hidden .queue-cols,
+    html[data-theme="classic"] body.is-compact-width.queue-thumbnails-hidden .q-item {
+      grid-template-columns: 34px minmax(0, 1fr) 28px;
+    }
+    html[data-theme="classic"] body.hide-queue-thumbnails .queue-cols span:nth-child(2),
+    html[data-theme="classic"] body.hide-queue-thumbnails .queue-cols span:nth-child(4),
+    html[data-theme="classic"] body.hide-queue-thumbnails .q-item img,
+    html[data-theme="classic"] body.queue-thumbnails-hidden .queue-cols span:nth-child(2),
+    html[data-theme="classic"] body.queue-thumbnails-hidden .queue-cols span:nth-child(4),
+    html[data-theme="classic"] body.queue-thumbnails-hidden .q-item img { display: none; }
+    body.is-flipped:not(.is-stacked) .layout { grid-template-columns: var(--queue-width) minmax(0, 1fr); }
+    body.is-flipped.is-compact-width:not(.is-stacked) .layout {
+      grid-template-columns: var(--compact-queue-width) minmax(0, 1fr);
+    }
+    body.is-flipped:not(.is-stacked) .player-column { grid-column: 2; border-left: 1px solid var(--line); border-right: 0; }
+    body.is-flipped:not(.is-stacked) .queue-panel { grid-column: 1; border-right: 1px solid var(--line); border-left: 0; }
+    body.is-flipped #player iframe { transform: scaleX(-1); }
+    body.is-flipped .titlebar,
+    body.is-flipped .toolbar,
+    body.is-flipped .queue-head,
+    body.is-flipped .now-playing-card,
+    body.is-flipped .controls-row { direction: rtl; }
+    body.is-flipped .titlebar > *,
+    body.is-flipped .toolbar > *,
+    body.is-flipped .queue-head > *,
+    body.is-flipped .now-playing-card > *,
+    body.is-flipped .controls-row > * { direction: ltr; }
+    body.is-flipped .queue-cols,
+    body.is-flipped .q-item { direction: rtl; }
+    body.is-flipped .q-title,
+    body.is-flipped .q-orig { direction: ltr; text-align: left; }
+    body.is-flipped .progress-row { direction: rtl; }
+    body.is-flipped #progress { direction: ltr; }
+    body.is-flipped .transport { direction: rtl; }
+    body.is-flipped.is-stacked .layout { grid-template-columns: minmax(0, 1fr); }
+    html[data-theme="classic"] body.is-flipped:not(.is-stacked) .layout {
+      grid-template-columns: var(--queue-width) minmax(0, 1fr);
+    }
+    html[data-theme="classic"] body.is-flipped.is-compact-width:not(.is-stacked) .layout {
+      grid-template-columns: var(--compact-queue-width) minmax(0, 1fr);
+    }
+    html[data-theme="classic"] body.is-flipped.is-stacked .layout { grid-template-columns: minmax(0, 1fr); }
   </style>
 </head>
 <body>
@@ -299,11 +427,7 @@
     <button id="btn-theme" title="Switch between modern and classic look">Classic</button>
     <button id="btn-open-playlist" title="Show and copy this playlist's YouTube link">Playlist link</button>
     <button id="btn-project" title="Open GitHub repository">Project Page</button>
-    <button id="btn-check-live" title="Open the playlist checker">Check Live Playlists</button>
-    <div class="search-wrap">
-      <span>Search</span>
-      <input id="search" type="search" placeholder="Title or number" autocomplete="off">
-    </div>
+    <button id="btn-check-live" title="Open the playlist snapshot checker">Check Playlist Snapshots</button>
   </div>
   <div id="warn-banner">
     <span id="warn-text"></span>
@@ -329,6 +453,9 @@
         <h3>GUIDE / QUEUE</h3>
         <div class="count" id="queue-count">0 / 0</div>
       </div>
+      <div class="queue-search">
+        <input id="search" type="search" placeholder="Search title or number" aria-label="Search queue by title or number" autocomplete="off">
+      </div>
       <div class="queue-cols">
         <span>Step</span><span></span><span>Title</span><span></span>
       </div>
@@ -342,15 +469,14 @@
       <div class="time right" id="time-dur">0:00</div>
     </div>
     <div class="controls-row">
-      <div class="keys-hint">Space play · ← → seek · ↑ ↓ volume · M mute · F7 prev · F8 play · F9 next</div>
       <div class="transport">
-        <button id="btn-prev" title="Previous (F7)">Prev</button>
-        <button id="btn-play" title="Play/Pause (F8 or Space)">Play</button>
-        <button id="btn-next" title="Next (F9)">Next</button>
+        <button id="btn-prev" title="Previous">Prev</button>
+        <button id="btn-play" title="Play or pause">Play</button>
+        <button id="btn-next" title="Next">Next</button>
         <button id="btn-shuffle" class="active" title="Shuffle on/off">Shuffle</button>
         <button id="btn-loop" title="Loop current">Loop</button>
       </div>
-      <div class="speed-wrap" title="Playback speed">
+      <div id="speed-control" class="speed-wrap" title="Playback speed">
         <span>Speed</span>
         <select id="speed">
           <option value="0.75">0.75×</option>
@@ -361,7 +487,7 @@
         </select>
       </div>
       <div class="volume-wrap">
-        <button id="btn-mute" class="icon-btn" title="Mute (M)">Mute</button>
+        <button id="btn-mute" class="icon-btn" title="Mute or unmute">Mute</button>
         <input id="volume" type="range" min="0" max="1000" value="900">
         <span id="vol-label">80%</span>
       </div>
@@ -390,6 +516,37 @@
       { name: "Brain", file: "Playlists/Brain.json" },
       { name: "Stuffy", file: "Playlists/Stuffy.json" }
     ];
+    const DEFAULT_PLAYER_CONFIG = {
+      responsive: {
+        stackBelowWidthPx: 760,
+        compactBelowWidthPx: 1040,
+        shortBelowHeightPx: 620,
+        queueWidthPx: 360,
+        compactQueueWidthPx: 300,
+        stackedPlayerMinHeightPx: 220,
+        stackedQueueMinHeightPx: 280
+      },
+      layout: { flipHorizontally: false },
+      appearance: {
+        defaultTheme: "classic",
+        adaptiveArtworkColors: true,
+        colorTransitionMs: 650,
+        fallbackPalette: { vibrant: "#5ca7ff", dark: "#1a52a3", light: "#9fd0ff" }
+      },
+      controls: {
+        keyboardShortcuts: true,
+        seekSeconds: 10,
+        volumeStepPercent: 5,
+        initialVolumePercent: 30,
+        showSpeedControl: true
+      },
+      queue: {
+        showThumbnails: true,
+        hideThumbnailsBelowWidthPx: 560,
+        autoScrollToCurrentTrack: true,
+        confirmBeforeRemoving: true
+      }
+    };
 
     function expandPlaylist(pl) {
       const ids = [], titles = {}, authors = {};
@@ -409,14 +566,127 @@
       player: null, playerReady: false, seeking: false, search: "",
       unavailable: {}, warnDismissed: false,
       playlistName: "Tasklike", playlistUrl: "", customPlaylist: false, playlists: {},
-      theme: "classic", titleCache: {}, fetchingTitles: false
+      theme: "classic", titleCache: {}, fetchingTitles: false,
+      artworkPaletteId: "", artworkPaletteToken: 0
     };
 
     let ytApiReady = false, pendingVideoId = null, pendingPlay = false;
     let saveTimer = null, tickTimer = null, ytPlaylistSig = "";
     let sessionAudio = null, toastTimer = null, mediaSessionTimer = null;
+    let lastAutoScrolledQueueTarget = "";
 
     function $(id) { return document.getElementById(id); }
+    function configObject(value, name) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        throw new Error(`config.json: "${name}" must be an object.`);
+      }
+      return value;
+    }
+    function configNumber(value, name, min, max) {
+      if (!Number.isInteger(value) || value < min || value > max) {
+        throw new Error(`config.json: "${name}" must be a whole number from ${min} to ${max}.`);
+      }
+      return value;
+    }
+    function validatePlayerConfig(raw) {
+      const source = configObject(raw, "root");
+      const responsive = configObject(source.responsive, "responsive");
+      const layout = configObject(source.layout, "layout");
+      const appearance = configObject(source.appearance, "appearance");
+      const controls = configObject(source.controls, "controls");
+      const queue = configObject(source.queue, "queue");
+      const fallbackPalette = configObject(appearance.fallbackPalette, "appearance.fallbackPalette");
+      const booleanSetting = (value, name) => {
+        if (typeof value !== "boolean") throw new Error(`config.json: "${name}" must be true or false.`);
+        return value;
+      };
+      const paletteColor = (value, name) => {
+        if (typeof value !== "string" || !/^#[\da-f]{6}$/i.test(value)) {
+          throw new Error(`config.json: "${name}" must be a six-digit hex color.`);
+        }
+        return value;
+      };
+      if (appearance.defaultTheme !== "classic" && appearance.defaultTheme !== "modern") {
+        throw new Error('config.json: "appearance.defaultTheme" must be "classic" or "modern".');
+      }
+      const validated = {
+        responsive: {
+          stackBelowWidthPx: configNumber(responsive.stackBelowWidthPx, "responsive.stackBelowWidthPx", 360, 1400),
+          compactBelowWidthPx: configNumber(responsive.compactBelowWidthPx, "responsive.compactBelowWidthPx", 500, 2000),
+          shortBelowHeightPx: configNumber(responsive.shortBelowHeightPx, "responsive.shortBelowHeightPx", 300, 1200),
+          queueWidthPx: configNumber(responsive.queueWidthPx, "responsive.queueWidthPx", 240, 600),
+          compactQueueWidthPx: configNumber(responsive.compactQueueWidthPx, "responsive.compactQueueWidthPx", 220, 500),
+          stackedPlayerMinHeightPx: configNumber(responsive.stackedPlayerMinHeightPx, "responsive.stackedPlayerMinHeightPx", 160, 600),
+          stackedQueueMinHeightPx: configNumber(responsive.stackedQueueMinHeightPx, "responsive.stackedQueueMinHeightPx", 180, 700)
+        },
+        layout: { flipHorizontally: booleanSetting(layout.flipHorizontally, "layout.flipHorizontally") },
+        appearance: {
+          defaultTheme: appearance.defaultTheme,
+          adaptiveArtworkColors: booleanSetting(appearance.adaptiveArtworkColors, "appearance.adaptiveArtworkColors"),
+          colorTransitionMs: configNumber(appearance.colorTransitionMs, "appearance.colorTransitionMs", 0, 3000),
+          fallbackPalette: {
+            vibrant: paletteColor(fallbackPalette.vibrant, "appearance.fallbackPalette.vibrant"),
+            dark: paletteColor(fallbackPalette.dark, "appearance.fallbackPalette.dark"),
+            light: paletteColor(fallbackPalette.light, "appearance.fallbackPalette.light")
+          }
+        },
+        controls: {
+          keyboardShortcuts: booleanSetting(controls.keyboardShortcuts, "controls.keyboardShortcuts"),
+          seekSeconds: configNumber(controls.seekSeconds, "controls.seekSeconds", 1, 120),
+          volumeStepPercent: configNumber(controls.volumeStepPercent, "controls.volumeStepPercent", 1, 25),
+          initialVolumePercent: configNumber(controls.initialVolumePercent, "controls.initialVolumePercent", 0, 100),
+          showSpeedControl: booleanSetting(controls.showSpeedControl, "controls.showSpeedControl")
+        },
+        queue: {
+          showThumbnails: booleanSetting(queue.showThumbnails, "queue.showThumbnails"),
+          hideThumbnailsBelowWidthPx: configNumber(queue.hideThumbnailsBelowWidthPx, "queue.hideThumbnailsBelowWidthPx", 0, 2000),
+          autoScrollToCurrentTrack: booleanSetting(queue.autoScrollToCurrentTrack, "queue.autoScrollToCurrentTrack"),
+          confirmBeforeRemoving: booleanSetting(queue.confirmBeforeRemoving, "queue.confirmBeforeRemoving")
+        }
+      };
+      if (validated.responsive.compactBelowWidthPx <= validated.responsive.stackBelowWidthPx) {
+        throw new Error("config.json: compactBelowWidthPx must be greater than stackBelowWidthPx.");
+      }
+      if (validated.responsive.compactQueueWidthPx > validated.responsive.queueWidthPx) {
+        throw new Error("config.json: compactQueueWidthPx cannot exceed queueWidthPx.");
+      }
+      return validated;
+    }
+    let playerConfig = DEFAULT_PLAYER_CONFIG;
+    async function loadPlayerConfig() {
+      const response = await fetch(new URL("config.json", document.baseURI));
+      if (!response.ok) throw new Error(`Could not load config.json: HTTP ${response.status}`);
+      return validatePlayerConfig(await response.json());
+    }
+    function configureResponsiveLayout() {
+      const { responsive } = playerConfig;
+      const width = window.innerWidth;
+      document.body.classList.toggle("is-stacked", width < responsive.stackBelowWidthPx);
+      document.body.classList.toggle("is-compact-width", width >= responsive.stackBelowWidthPx && width < responsive.compactBelowWidthPx);
+      document.body.classList.toggle("is-short-viewport", window.innerHeight < responsive.shortBelowHeightPx);
+      document.body.classList.toggle("is-flipped", playerConfig.layout.flipHorizontally);
+      document.body.classList.toggle(
+        "queue-thumbnails-hidden",
+        !playerConfig.queue.showThumbnails ||
+          (playerConfig.queue.hideThumbnailsBelowWidthPx > 0 && width < playerConfig.queue.hideThumbnailsBelowWidthPx)
+      );
+      document.body.classList.add("responsive-ready");
+    }
+    function applyPlayerConfig() {
+      const root = document.documentElement;
+      const { responsive, appearance, queue } = playerConfig;
+      root.style.setProperty("--queue-width", `${responsive.queueWidthPx}px`);
+      root.style.setProperty("--compact-queue-width", `${responsive.compactQueueWidthPx}px`);
+      root.style.setProperty("--stacked-player-min-height", `${responsive.stackedPlayerMinHeightPx}px`);
+      root.style.setProperty("--stacked-queue-min-height", `${responsive.stackedQueueMinHeightPx}px`);
+      root.style.setProperty("--color-transition-duration", `${appearance.colorTransitionMs}ms`);
+      $("speed-control").hidden = !playerConfig.controls.showSpeedControl;
+      document.body.classList.toggle("hide-queue-thumbnails", !queue.showThumbnails);
+      state.volume = playerConfig.controls.initialVolumePercent;
+      state.lastVolume = state.volume || 30;
+      configureResponsiveLayout();
+      updateArtworkPalette(currentVideo()?.video_id || "");
+    }
     function showToast(msg) {
       const el = $("toast"); el.textContent = msg; el.classList.add("visible");
       clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("visible"), 2800);
@@ -585,10 +855,156 @@
     function thumbUrl(id) { return "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg"; }
     function youtubeUrl(id) { return "https://www.youtube.com/watch?v=" + id; }
     function escapeHtml(s) { return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;"); }
+    const artworkCanvas = document.createElement("canvas");
+    artworkCanvas.width = artworkCanvas.height = 64;
+    const artworkContext = artworkCanvas.getContext("2d", { willReadFrequently: true });
+    function rgbToHsl(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b), delta = max - min;
+      const lightness = (max + min) / 2;
+      let hue = 0, saturation = 0;
+      if (delta) {
+        saturation = delta / (1 - Math.abs(2 * lightness - 1));
+        if (max === r) hue = ((g - b) / delta) % 6;
+        else if (max === g) hue = (b - r) / delta + 2;
+        else hue = (r - g) / delta + 4;
+        hue = (hue * 60 + 360) % 360;
+      }
+      return { hue, saturation, lightness };
+    }
+    function hslToHex(hue, saturation, lightness) {
+      const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+      const section = hue / 60;
+      const secondary = chroma * (1 - Math.abs(section % 2 - 1));
+      let r = 0, g = 0, b = 0;
+      if (section < 1) [r, g] = [chroma, secondary];
+      else if (section < 2) [r, g] = [secondary, chroma];
+      else if (section < 3) [g, b] = [chroma, secondary];
+      else if (section < 4) [g, b] = [secondary, chroma];
+      else if (section < 5) [r, b] = [secondary, chroma];
+      else [r, b] = [chroma, secondary];
+      const offset = lightness - chroma / 2;
+      return "#" + [r, g, b].map(channel =>
+        Math.round((channel + offset) * 255).toString(16).padStart(2, "0")
+      ).join("");
+    }
+    function controlTextColor(hex) {
+      const channels = hex.slice(1).match(/.{2}/g).map(value => parseInt(value, 16) / 255);
+      const linear = channels.map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+      const luminance = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+      return luminance > 0.2 ? "#10151c" : "#eef2f6";
+    }
+    function applyArtworkPalette(palette) {
+      const root = document.documentElement;
+      const rgba = (hex, alpha) => {
+        const [r, g, b] = hex.slice(1).match(/.{2}/g).map(value => parseInt(value, 16));
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      };
+      root.style.setProperty("--teal", palette.vibrant);
+      root.style.setProperty("--teal-dark", palette.dark);
+      root.style.setProperty("--teal-soft", rgba(palette.vibrant, 0.16));
+      root.style.setProperty("--teal-border", rgba(palette.vibrant, 0.45));
+      root.style.setProperty("--teal-focus", rgba(palette.vibrant, 0.32));
+      root.style.setProperty("--teal-glow", rgba(palette.vibrant, 0.32));
+      root.style.setProperty("--control-ink", controlTextColor(palette.vibrant));
+      root.style.setProperty("--next", palette.light);
+      root.style.setProperty("--next-soft", rgba(palette.light, 0.14));
+      root.style.setProperty("--next-border", rgba(palette.light, 0.22));
+    }
+    function paletteFromArtwork(imageData) {
+      const bins = new Map(), pixels = imageData.data;
+      for (let index = 0; index < pixels.length; index += 16) {
+        if (pixels[index + 3] < 128) continue;
+        const key = [pixels[index] >> 4, pixels[index + 1] >> 4, pixels[index + 2] >> 4].join(",");
+        bins.set(key, (bins.get(key) || 0) + 1);
+      }
+      const colors = [...bins.entries()].map(([key, count]) => {
+        const [r, g, b] = key.split(",").map(value => Number(value) * 17);
+        return { hsl: rgbToHsl(r, g, b), count };
+      });
+      if (!colors.length) return DEFAULT_ARTWORK_PALETTE;
+
+      const vibrantColors = colors.filter(color => color.hsl.saturation > 0.12);
+      const vibrant = (vibrantColors.length ? vibrantColors : colors).sort((a, b) =>
+        (b.hsl.saturation * (1 - Math.abs(b.hsl.lightness - 0.5) * 0.5) * Math.sqrt(b.count)) -
+        (a.hsl.saturation * (1 - Math.abs(a.hsl.lightness - 0.5) * 0.5) * Math.sqrt(a.count))
+      )[0];
+      const hueDistance = (a, b) => {
+        const distance = Math.abs(a - b);
+        return Math.min(distance, 360 - distance);
+      };
+      const chooseRole = (targetLightness, isDark) => {
+        const candidates = colors.filter(color =>
+          isDark ? color.hsl.lightness < 0.58 : color.hsl.lightness > 0.42
+        );
+        if (!candidates.length) return vibrant;
+        return candidates.sort((a, b) => {
+          const score = color => {
+            const saturationWeight = 0.45 + color.hsl.saturation * 0.55;
+            const lightnessFit = 1 - Math.abs(color.hsl.lightness - targetLightness) * 0.65;
+            const hueVariety = color.hsl.saturation < 0.12 || vibrant.hsl.saturation < 0.12
+              ? 1
+              : 0.85 + hueDistance(color.hsl.hue, vibrant.hsl.hue) / 180 * 0.3;
+            return Math.sqrt(color.count) * saturationWeight * lightnessFit * hueVariety;
+          };
+          return score(b) - score(a);
+        })[0];
+      };
+      const fitRole = (color, minLightness, maxLightness, boostColor) => {
+        const lightness = Math.max(minLightness, Math.min(maxLightness, color.hsl.lightness));
+        const saturation = boostColor && color.hsl.saturation > 0.12
+          ? Math.max(0.3, Math.min(0.9, color.hsl.saturation))
+          : Math.min(0.9, color.hsl.saturation);
+        return hslToHex(color.hsl.hue, saturation, lightness);
+      };
+      const dark = chooseRole(0.34, true);
+      const light = chooseRole(0.72, false);
+      return {
+        vibrant: fitRole(vibrant, 0.42, 0.7, true),
+        dark: fitRole(dark, 0.22, 0.4, false),
+        light: fitRole(light, 0.64, 0.82, false)
+      };
+    }
+    function updateArtworkPalette(videoId) {
+      if (!playerConfig.appearance.adaptiveArtworkColors) {
+        state.artworkPaletteId = videoId;
+        state.artworkPaletteToken += 1;
+        applyArtworkPalette(playerConfig.appearance.fallbackPalette);
+        return;
+      }
+      if (!videoId) {
+        state.artworkPaletteId = "";
+        state.artworkPaletteToken += 1;
+        applyArtworkPalette(playerConfig.appearance.fallbackPalette);
+        return;
+      }
+      if (state.artworkPaletteId === videoId) return;
+      state.artworkPaletteId = videoId;
+      const token = ++state.artworkPaletteToken;
+      const image = new Image();
+      image.crossOrigin = "anonymous";
+      image.onload = () => {
+        if (token !== state.artworkPaletteToken) return;
+        try {
+          if (!artworkContext) throw new Error("Artwork color sampling is unavailable.");
+          artworkContext.clearRect(0, 0, artworkCanvas.width, artworkCanvas.height);
+          artworkContext.drawImage(image, 0, 0, artworkCanvas.width, artworkCanvas.height);
+          applyArtworkPalette(paletteFromArtwork(artworkContext.getImageData(0, 0, artworkCanvas.width, artworkCanvas.height)));
+        } catch (error) {
+          console.warn("Could not read YouTube thumbnail colors; using the configured fallback palette.", error);
+          applyArtworkPalette(playerConfig.appearance.fallbackPalette);
+        }
+      };
+      image.onerror = () => {
+        if (token === state.artworkPaletteToken) applyArtworkPalette(playerConfig.appearance.fallbackPalette);
+      };
+      image.src = thumbUrl(videoId);
+    }
     function restoreProgressUi() {
       $("time-cur").textContent = formatTime(state.currentTime);
       $("time-dur").textContent = formatTime(state.duration);
       if (state.duration > 0) $("progress").value = String(Math.round((state.currentTime / state.duration) * 1000));
+      $("progress").style.setProperty("--progress", `${Number($("progress").value) / 10}%`);
     }
 
     /* ── Playlist URL helpers ────────────────────────────── */
@@ -673,7 +1089,13 @@
     function nextQueuePos() { if (!state.queue.length) return -1; if (state.loopCurrent) return state.queuePos; return (state.queuePos + 1) % state.queue.length; }
     function moveQueueItem(from, to) { if (from === to || from < 0 || to < 0) return; const cur = currentOrigIndex(); const [item] = state.queue.splice(from, 1); state.queue.splice(to, 0, item); state.queuePos = Math.max(0, state.queue.indexOf(cur)); ytPlaylistSig = ""; schedulePersist(); renderQueue(); renderNowPlaying(); }
     function removeQueueItem(step) {
-      if (step < 0 || step >= state.queue.length) return; const was = step === state.queuePos; state.queue.splice(step, 1);
+      if (step < 0 || step >= state.queue.length) return;
+      if (playerConfig.queue.confirmBeforeRemoving) {
+        const video = state.videos[state.queue[step]];
+        const title = video?.title || video?.video_id || "this video";
+        if (!window.confirm(`Remove "${title}" from the queue?`)) return;
+      }
+      const was = step === state.queuePos; state.queue.splice(step, 1);
       if (!state.queue.length) { state.queuePos = 0; renderQueue(); renderNowPlaying(); schedulePersist(); return; }
       if (step < state.queuePos) state.queuePos -= 1; else if (state.queuePos >= state.queue.length) state.queuePos = 0;
       ytPlaylistSig = ""; schedulePersist(); if (was) { state.currentTime = 0; playCurrent(true); } else { renderQueue(); renderNowPlaying(); }
@@ -697,8 +1119,9 @@
     }
     function renderNowPlaying() {
       const video = currentVideo();
-      if (!video) { $("now-title").textContent = "Nothing playing"; $("now-sub").textContent = "Load a playlist to start"; $("now-art").removeAttribute("src"); $("btn-open-yt").disabled = true; return; }
+      if (!video) { updateArtworkPalette(""); $("now-title").textContent = "Nothing playing"; $("now-sub").textContent = "Load a playlist to start"; $("now-art").removeAttribute("src"); $("btn-open-yt").disabled = true; return; }
       const orig = currentOrigIndex();
+      updateArtworkPalette(video.video_id);
       $("now-title").textContent = video.title || "Video " + video.video_id;
       $("now-sub").textContent = "Step " + (state.queuePos + 1) + " / " + state.queue.length + " · #" + (orig + 1) + (video.author ? " · " + video.author : "");
       $("now-art").src = thumbUrl(video.video_id); $("btn-open-yt").disabled = false; updateMediaSession(video);
@@ -731,6 +1154,18 @@
         row.addEventListener("drop", ev => { ev.preventDefault(); moveQueueItem(Number(ev.dataTransfer.getData("text/plain")), item.step); });
         list.appendChild(row);
       });
+      if (playerConfig.queue.autoScrollToCurrentTrack) {
+        const video = currentVideo();
+        const target = video ? `${state.playlistName}:${video.video_id}` : "";
+        const playingRow = list.querySelector(".q-item.playing");
+        if (target && target !== lastAutoScrolledQueueTarget && playingRow) {
+          playingRow.scrollIntoView({
+            block: "nearest",
+            behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+          });
+          lastAutoScrolledQueueTarget = target;
+        }
+      }
     }
 
     /* ── Volume ──────────────────────────────────────────── */
@@ -757,7 +1192,8 @@
       set("play", () => { if (state.playerReady && state.player) state.player.playVideo(); });
       set("pause", () => { if (state.playerReady && state.player) state.player.pauseVideo(); });
       set("previoustrack", () => playPrev()); set("nexttrack", () => playNext());
-      set("seekbackward", d => seekBy(-(d?.seekOffset || 10))); set("seekforward", d => seekBy(d?.seekOffset || 10));
+      set("seekbackward", d => seekBy(-(d?.seekOffset || playerConfig.controls.seekSeconds)));
+      set("seekforward", d => seekBy(d?.seekOffset || playerConfig.controls.seekSeconds));
       set("seekto", d => { if (d?.seekTime == null || !state.playerReady) return; state.player.seekTo(d.seekTime, true); state.currentTime = d.seekTime; });
       const v = currentVideo(); if (v) updateMediaSession(v); updatePositionState();
     }
@@ -780,6 +1216,7 @@
       $("btn-mute").classList.toggle("active", state.muted || state.volume === 0);
       $("btn-mute").textContent = (state.muted || state.volume === 0) ? "Unmute" : "Mute";
       $("volume").value = String(volumeToSlider(state.volume));
+      $("volume").style.setProperty("--volume-progress", `${Number($("volume").value) / 10}%`);
       $("vol-label").textContent = Math.round(state.volume) + "%";
       $("speed").value = String(state.playbackRate);
       $("btn-play").textContent = state.playing ? "Pause" : "Play";
@@ -833,7 +1270,7 @@
       clearInterval(tickTimer);
       tickTimer = setInterval(() => {
         if (!state.playerReady || !state.player || state.seeking) return;
-        try { const t = state.player.getCurrentTime() || 0, d = state.player.getDuration() || 0; state.currentTime = t; state.duration = d; $("time-cur").textContent = formatTime(t); $("time-dur").textContent = formatTime(d); if (d > 0) $("progress").value = String(Math.round((t / d) * 1000)); updatePositionState(); capturePlayerMeta(); } catch (_) {}
+        try { const t = state.player.getCurrentTime() || 0, d = state.player.getDuration() || 0; state.currentTime = t; state.duration = d; $("time-cur").textContent = formatTime(t); $("time-dur").textContent = formatTime(d); if (d > 0) $("progress").value = String(Math.round((t / d) * 1000)); $("progress").style.setProperty("--progress", `${Number($("progress").value) / 10}%`); updatePositionState(); capturePlayerMeta(); } catch (_) {}
       }, 250);
     }
     function handleTrackEnded() { if (state.queuePos >= state.queue.length - 1) { createQueue(); state.queuePos = 0; state.currentTime = 0; playCurrent(true); return; } playNext(); }
@@ -904,6 +1341,7 @@
 
     /* ── UI bindings ─────────────────────────────────────── */
     function bindUi() {
+      window.addEventListener("resize", configureResponsiveLayout, { passive: true });
       $("btn-prev").onclick = playPrev; $("btn-next").onclick = playNext; $("btn-play").onclick = togglePlay;
       $("btn-shuffle").onclick = toggleShuffle;
       $("btn-loop").onclick = () => { state.loopCurrent = !state.loopCurrent; applyChrome(); renderQueue(); schedulePersist(); };
@@ -942,21 +1380,23 @@
       $("volume").oninput = ev => setVolume(sliderToVolume(ev.target.value));
       $("progress").onmousedown = () => { state.seeking = true; };
       $("progress").onmouseup = () => { state.seeking = false; };
+      $("progress").oninput = ev => ev.target.style.setProperty("--progress", `${Number(ev.target.value) / 10}%`);
       $("progress").onchange = ev => { if (!state.duration) return; const t = (Number(ev.target.value) / 1000) * state.duration; state.currentTime = t; if (state.playerReady) state.player.seekTo(t, true); schedulePersist(); };
       $("search").oninput = ev => { state.search = ev.target.value; renderQueue(); };
       $("warn-dismiss").onclick = () => { state.warnDismissed = true; $("warn-banner").classList.remove("visible"); };
       $("playlist-select").onchange = ev => { if (ev.target.value !== "__current") loadNamedPlaylist(ev.target.value); };
 
       document.addEventListener("keydown", ev => {
+        if (!playerConfig.controls.keyboardShortcuts) return;
         const tag = ev.target.tagName; if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || ev.target.isContentEditable) return;
         const prev = ev.key === "F7" || ev.code === "F7" || ev.key === "MediaTrackPrevious";
         const next = ev.key === "F9" || ev.code === "F9" || ev.key === "MediaTrackNext";
         const play = ev.key === "F8" || ev.code === "F8" || ev.key === "MediaPlayPause" || ev.code === "Space";
         if (prev || next || play) { ev.preventDefault(); ev.stopPropagation(); lockPlayerFocus(); if (prev) playPrev(); if (next) playNext(); if (play) togglePlay(); return; }
-        if (ev.key === "ArrowLeft") { ev.preventDefault(); seekBy(-10); }
-        if (ev.key === "ArrowRight") { ev.preventDefault(); seekBy(10); }
-        if (ev.key === "ArrowUp") { ev.preventDefault(); setVolume(state.volume + 5); }
-        if (ev.key === "ArrowDown") { ev.preventDefault(); setVolume(state.volume - 5); }
+        if (ev.key === "ArrowLeft") { ev.preventDefault(); seekBy(-playerConfig.controls.seekSeconds); }
+        if (ev.key === "ArrowRight") { ev.preventDefault(); seekBy(playerConfig.controls.seekSeconds); }
+        if (ev.key === "ArrowUp") { ev.preventDefault(); setVolume(state.volume + playerConfig.controls.volumeStepPercent); }
+        if (ev.key === "ArrowDown") { ev.preventDefault(); setVolume(state.volume - playerConfig.controls.volumeStepPercent); }
         if (ev.key === "m" || ev.key === "M") { ev.preventDefault(); toggleMute(); }
         if (ev.key === "l" || ev.key === "L") { state.loopCurrent = !state.loopCurrent; applyChrome(); renderQueue(); schedulePersist(); }
         if (ev.key === "s" || ev.key === "S") toggleShuffle();
@@ -966,6 +1406,15 @@
 
     window.onYouTubeIframeAPIReady = function () { ytApiReady = true; if (pendingVideoId || currentVideo()) playCurrent(true); };
     async function init() {
+      try {
+        playerConfig = await loadPlayerConfig();
+      } catch (error) {
+        console.error("Could not load player configuration; using safe defaults.", error);
+        playerConfig = DEFAULT_PLAYER_CONFIG;
+        showToast("Player settings could not be loaded. Using the default settings.");
+      }
+      state.theme = playerConfig.appearance.defaultTheme;
+      applyPlayerConfig();
       loadStore();
       loadTitleCache();
       bindUi();

@@ -1,0 +1,37 @@
+{
+  "responsive": {
+    "stackBelowWidthPx": 760,
+    "compactBelowWidthPx": 1040,
+    "shortBelowHeightPx": 620,
+    "queueWidthPx": 360,
+    "compactQueueWidthPx": 300,
+    "stackedPlayerMinHeightPx": 220,
+    "stackedQueueMinHeightPx": 280
+  },
+  "layout": {
+    "flipHorizontally": false
+  },
+  "appearance": {
+    "defaultTheme": "classic",
+    "adaptiveArtworkColors": true,
+    "colorTransitionMs": 650,
+    "fallbackPalette": {
+      "vibrant": "#5ca7ff",
+      "dark": "#1a52a3",
+      "light": "#9fd0ff"
+    }
+  },
+  "controls": {
+    "keyboardShortcuts": true,
+    "seekSeconds": 10,
+    "volumeStepPercent": 5,
+    "initialVolumePercent": 30,
+    "showSpeedControl": true
+  },
+  "queue": {
+    "showThumbnails": true,
+    "hideThumbnailsBelowWidthPx": 560,
+    "autoScrollToCurrentTrack": true,
+    "confirmBeforeRemoving": true
+  }
+}
