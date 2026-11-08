@@ -1,4 +1,12 @@
 {
+  "playlists": [
+    { "name": "Tasklike", "file": "Playlists/Tasklike.json" },
+    { "name": "Simple", "file": "Playlists/Simple.json" },
+    { "name": "RealFr", "file": "Playlists/RealFr.json" },
+    { "name": "Brain", "file": "Playlists/Brain.json" },
+    { "name": "Stuffy", "file": "Playlists/Stuffy.json" },
+    { "name": "Techy", "file": "Playlists/Techy.json" }
+  ],
   "responsive": {
     "stackBelowWidthPx": 760,
     "compactBelowWidthPx": 1040,
@@ -23,6 +31,7 @@
   },
   "controls": {
     "keyboardShortcuts": true,
+    "useVolumeCurve": true,
     "seekSeconds": 10,
     "volumeStepPercent": 5,
     "initialVolumePercent": 30,

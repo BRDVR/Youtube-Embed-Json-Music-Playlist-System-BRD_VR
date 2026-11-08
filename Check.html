@@ -72,6 +72,7 @@
     .report p { line-height: 1.5; }
     .report h3 { margin: 22px 0 8px; font-size: 15px; }
     .report ul { padding-left: 22px; color: var(--text-2); line-height: 1.6; }
+    .export-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     pre {
       overflow: auto;
       margin: 8px 0;
@@ -96,6 +97,9 @@
     .snapshot-url { display: block; margin-top: 4px; color: var(--text); font: 12px/1.5 "IBM Plex Mono", monospace; overflow-wrap: anywhere; user-select: all; }
     .snapshot-status { color: var(--muted); font-size: 13px; }
     .review-item.approved { border-color: rgba(92,167,255,.45); }
+    .repair-tool { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .repair-tool label { display: block; margin: 10px 0 6px; color: var(--text-2); }
+    .repair-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
     .error { color: var(--danger); }
     .source { color: var(--muted); font-size: 12px; }
     [hidden] { display: none !important; }
@@ -118,27 +122,37 @@
       <label for="snapshot-files">Add exported playlist JSON files (repeat to add more)</label>
       <input id="snapshot-files" type="file" accept=".json,application/json" multiple disabled>
       <p id="snapshot-selection" class="source" role="status">Loading linked playlists…</p>
-      <button id="run-check" type="button" disabled>Check All Playlists</button>
+      <button id="run-check" type="button" disabled>Check Uploaded Playlists</button>
       <button id="download-zip" type="button" disabled>Download Replacement ZIP</button>
       <button id="full-restore" type="button" disabled>Full Restore ZIP</button>
       <p id="export-status" role="status">Run the check before exporting. Duplicate warnings will not block exports; rows are kept by default.</p>
       <p>The playlist name in your JSON is always preserved. Replacement outputs snapshot entries in snapshot order, then appends saved rows that could not be paired with a snapshot occurrence. Full Restore follows every snapshot entry only, in snapshot order, and can omit extra saved rows. For matching video IDs, the imported snapshot may update the video title; new entries use the snapshot title. Only saved rows not represented by snapshot occurrences require your acknowledgment.</p>
+      <div class="repair-tool">
+        <h2>Repair or identify a playlist JSON</h2>
+        <p>Upload any JSON file. The checker will look for video entries, match it to a configured playlist when possible, compare it with your saved file, and prepare a repaired playlist JSON. Files that do not match a configured playlist can still be repaired and downloaded.</p>
+        <label for="repair-file">Choose a JSON file</label>
+        <input id="repair-file" type="file" accept=".json,application/json" disabled>
+        <p id="repair-status" class="source" role="status">Files are inspected locally and are not uploaded.</p>
+        <div id="repair-result" hidden>
+          <div class="repair-actions">
+            <button id="download-repaired" type="button" disabled>Download Repaired JSON</button>
+            <button id="download-restored" type="button" disabled>Download with Missing Saved Rows Restored</button>
+          </div>
+          <div id="repair-details"></div>
+        </div>
+      </div>
     </section>
     <p id="summary" role="status" aria-live="polite">Ready to check playlists.</p>
     <section id="reports" aria-live="polite"></section>
   </main>
   <script>
-    const PLAYLISTS = [
-      { name: "Tasklike", file: "Playlists/Tasklike.json" },
-      { name: "Simple", file: "Playlists/Simple.json" },
-      { name: "RealFr", file: "Playlists/RealFr.json" },
-      { name: "Brain", file: "Playlists/Brain.json" },
-      { name: "Stuffy", file: "Playlists/Stuffy.json" }
-    ];
+    let PLAYLISTS = [];
     let completedReports = [];
     const reviewDecisions = new Map();
     let linkedPlaylists = [];
     const importedSnapshots = new Map();
+    const savedPlaylists = new Map();
+    let repairResult = null;
     let snapshotSetupError = "";
 
     function videoUrl(id) {
@@ -333,6 +347,10 @@
       }
       return "";
     }
+    function identifyLinkedPlaylist(snapshot) {
+      const listId = importedPlaylistId(snapshot);
+      return listId ? linkedPlaylists.find(playlist => playlist.listId === listId) || null : null;
+    }
     async function readImportedSnapshot(file) {
       let data;
       try {
@@ -346,7 +364,7 @@
       }
       const listId = importedPlaylistId(data);
       if (!listId) throw new Error(`${file.name}: the export does not identify its YouTube playlist.`);
-      const linkedPlaylist = linkedPlaylists.find(playlist => playlist.listId === listId);
+      const linkedPlaylist = identifyLinkedPlaylist(data);
       if (!linkedPlaylist) throw new Error(`${file.name}: playlist ID ${listId} is not one of this page's linked playlists.`);
       const positions = new Set();
       const videos = data.videos.map((video, index) => {
@@ -377,6 +395,230 @@
         exportedAt: data.exportedAt || data.exported_at || data.playlist?.exportedAt || ""
       };
     }
+    function repairVideoId(value) {
+      if (typeof value !== "string") return "";
+      const text = value.trim();
+      if (/^[\w-]{11}$/.test(text)) return text;
+      try {
+        const url = new URL(text);
+        const id = url.searchParams.get("v") ||
+          (url.hostname === "youtu.be" ? url.pathname.split("/").filter(Boolean)[0] : "");
+        return id && /^[\w-]{11}$/.test(id) ? id : "";
+      } catch {
+        return "";
+      }
+    }
+    function repairRow(item) {
+      if (Array.isArray(item)) {
+        const idIndex = item.findIndex(value => repairVideoId(value));
+        if (idIndex < 0) return null;
+        const id = repairVideoId(item[idIndex]);
+        const strings = item.filter((value, index) => index !== idIndex && typeof value === "string");
+        const title = strings.find(value => value.trim()) || "";
+        const artist = strings.find(value => value !== title && value.trim()) || "";
+        const position = item.find(value => Number.isInteger(value) && value > 0) || null;
+        return { id, title: title.trim(), artist: artist.trim(), position };
+      }
+      if (!item || typeof item !== "object") return null;
+      const idFields = [
+        item.videoId, item.video_id, item.youtubeId, item.youtube_id, item.id,
+        item.url, item.videoUrl, item.link, item.resourceId?.videoId,
+        item.snippet?.resourceId?.videoId, item.contentDetails?.videoId
+      ];
+      const id = idFields.map(repairVideoId).find(Boolean) || "";
+      if (!id) return null;
+      const textField = (keys, nested = []) => {
+        for (const key of keys) {
+          if (typeof item[key] === "string" && item[key].trim()) return item[key].trim();
+        }
+        for (const [object, key] of nested) {
+          if (typeof object?.[key] === "string" && object[key].trim()) return object[key].trim();
+        }
+        return "";
+      };
+      const position = ["position", "pos", "order", "index", "number"]
+        .map(key => item[key]).find(value => Number.isInteger(value) && value > 0) || null;
+      return {
+        id,
+        title: textField(["title", "name", "videoTitle"], [[item.snippet, "title"]]),
+        artist: textField(
+          ["channelTitle", "channel", "artist", "author", "uploader", "creator"],
+          [[item.snippet, "channelTitle"], [item.snippet, "channel"], [item.snippet?.channel, "title"]]
+        ),
+        position
+      };
+    }
+    function findRepairRows(data) {
+      const candidates = [];
+      const visit = value => {
+        if (!value || typeof value !== "object") return;
+        if (Array.isArray(value)) {
+          const rows = value.map(repairRow).filter(Boolean);
+          if (rows.length) candidates.push(rows);
+          value.forEach(visit);
+          return;
+        }
+        Object.values(value).forEach(visit);
+      };
+      visit(data);
+      candidates.sort((a, b) => b.length - a.length);
+      if (!candidates.length) return [];
+      const rows = candidates[0];
+      return rows.some(row => row.position !== null)
+        ? rows.slice().sort((a, b) =>
+            (a.position ?? Number.MAX_SAFE_INTEGER) - (b.position ?? Number.MAX_SAFE_INTEGER))
+        : rows;
+    }
+    function repairSourceUrl(data) {
+      const candidates = [data.playlist?.url, data.playlistUrl, data.playlist_url, data.url];
+      return candidates.find(value => {
+        if (typeof value !== "string") return false;
+        try {
+          return Boolean(new URL(value).searchParams.get("list"));
+        } catch {
+          return false;
+        }
+      }) || "";
+    }
+    function matchSavedPlaylist(data, rows, filename) {
+      const linkedMatch = identifyLinkedPlaylist(data);
+      if (linkedMatch) return { playlist: linkedMatch, reason: "playlist ID" };
+      const names = [data.name, data.playlist?.name, data.playlist?.title, filename?.replace(/\.json$/i, "")]
+        .filter(value => typeof value === "string").map(normalizedText);
+      const namedMatches = PLAYLISTS.filter(playlist => names.includes(normalizedText(playlist.name)));
+      if (namedMatches.length === 1) {
+        const playlist = namedMatches[0];
+        return { playlist, reason: "playlist name" };
+      }
+      const uploadedIds = new Set(rows.map(row => row.id));
+      const scores = PLAYLISTS.map(playlist => {
+        const saved = savedPlaylists.get(playlist.file);
+        const savedIds = new Set((saved?.videos || []).map(row => Array.isArray(row) ? row[1] : ""));
+        return { playlist, overlap: [...uploadedIds].filter(id => savedIds.has(id)).length };
+      }).sort((a, b) => b.overlap - a.overlap);
+      if (scores[0]?.overlap >= 2 && scores[0].overlap > (scores[1]?.overlap || 0)) {
+        return { playlist: scores[0].playlist, reason: "matching video IDs" };
+      }
+      return null;
+    }
+    async function inspectRepairFile(file) {
+      const data = JSON.parse(await file.text());
+      if (!data || typeof data !== "object") {
+        throw new Error("The JSON must contain a playlist object or video list.");
+      }
+      const rows = findRepairRows(data);
+      if (!rows.length) {
+        throw new Error("No YouTube video IDs were found. Include video IDs or YouTube video URLs in the JSON.");
+      }
+      const match = matchSavedPlaylist(data, rows, file.name);
+      const saved = match ? savedPlaylists.get(match.playlist.file) : null;
+      const savedRows = saved?.videos || [];
+      const savedById = new Map();
+      for (const row of savedRows) {
+        if (!Array.isArray(row) || typeof row[1] !== "string") continue;
+        const matches = savedById.get(row[1]) || [];
+        matches.push(row);
+        savedById.set(row[1], matches);
+      }
+      const occurrence = new Map();
+      let repairedMetadata = 0;
+      const videos = rows.map(row => {
+        const matches = savedById.get(row.id) || [];
+        const savedRow = matches[occurrence.get(row.id) || 0] || matches[0];
+        occurrence.set(row.id, (occurrence.get(row.id) || 0) + 1);
+        const title = row.title || (typeof savedRow?.[0] === "string" ? savedRow[0] : "");
+        const artist = row.artist || (typeof savedRow?.[2] === "string" ? savedRow[2] : "");
+        if ((!row.title && title) || (!row.artist && artist)) repairedMetadata += 1;
+        return [title, row.id, artist];
+      });
+      const uploadedCounts = new Map();
+      for (const row of rows) uploadedCounts.set(row.id, (uploadedCounts.get(row.id) || 0) + 1);
+      const missingSavedRows = [];
+      for (const row of savedRows) {
+        if (!Array.isArray(row) || typeof row[1] !== "string") continue;
+        const remaining = uploadedCounts.get(row[1]) || 0;
+        if (remaining > 0) uploadedCounts.set(row[1], remaining - 1);
+        else missingSavedRows.push(row);
+      }
+      const originalName = data.name || data.playlist?.name || data.playlist?.title ||
+        file.name.replace(/\.json$/i, "") || "Repaired Playlist";
+      const name = match ? match.playlist.name : String(originalName).trim();
+      const url = match ? (saved?.url || "") : repairSourceUrl(data);
+      const custom = match ? saved?.custom === true : !url;
+      const base = match ? { ...saved } : { name, custom, url };
+      const repaired = { ...base, name, custom, url, videos };
+      const restored = {
+        ...repaired,
+        videos: [...videos, ...missingSavedRows.map(row => [...row])]
+      };
+      return {
+        sourceFile: file.name,
+        match,
+        name,
+        videos,
+        missingSavedRows,
+        repairedMetadata,
+        repairedJson: serializeJson(repaired) + "\n",
+        restoredJson: serializeJson(restored) + "\n"
+      };
+    }
+    function downloadRepairJson(content, filename) {
+      const blob = new Blob([content], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    async function handleRepairFile(file) {
+      const status = document.getElementById("repair-status");
+      const result = document.getElementById("repair-result");
+      const details = document.getElementById("repair-details");
+      repairResult = null;
+      result.hidden = true;
+      details.replaceChildren();
+      document.getElementById("download-repaired").disabled = true;
+      document.getElementById("download-restored").disabled = true;
+      status.textContent = `Inspecting ${file.name}…`;
+      try {
+        repairResult = await inspectRepairFile(file);
+        let snapshotMessage = "";
+        if (repairResult.match?.reason === "playlist ID") {
+          try {
+            const snapshot = await readImportedSnapshot(file);
+            importedSnapshots.set(snapshot.id, snapshot);
+            completedReports = [];
+            document.getElementById("reports").replaceChildren();
+            updateSnapshotChecklist();
+            snapshotMessage = ` Playlist ID ${snapshot.id} was identified as ${repairResult.name}; this export is also ready for the regular checker.`;
+          } catch (error) {
+            snapshotMessage = ` The playlist ID was identified as ${repairResult.name}, but this file is not a complete checker snapshot: ${error.message}`;
+          }
+        }
+        const info = repairResult.match
+          ? `Matched ${repairResult.name} by ${repairResult.match.reason}; compared with ${savedPlaylists.get(repairResult.match.playlist.file).videos.length} saved rows.`
+          : `No configured playlist matched. Prepared a standalone playlist named "${repairResult.name}".`;
+        status.textContent = `${info} Found ${repairResult.videos.length} video rows; filled ${repairResult.repairedMetadata} incomplete row${repairResult.repairedMetadata === 1 ? "" : "s"} from saved data.${snapshotMessage}`;
+        if (repairResult.match && repairResult.missingSavedRows.length) {
+          details.appendChild(makeElement("p",
+            `${repairResult.missingSavedRows.length} saved row${repairResult.missingSavedRows.length === 1 ? " is" : "s are"} absent from the uploaded file. The primary download keeps the uploaded entries; the second download appends those saved rows at the end.`
+          ));
+          document.getElementById("download-restored").disabled = false;
+        } else if (repairResult.match) {
+          details.appendChild(makeElement("p", "All saved video occurrences are represented in the uploaded file."));
+        } else {
+          details.appendChild(makeElement("p", "The repaired file keeps all recognized video rows and uses the playlist format expected by this project."));
+        }
+        document.getElementById("download-repaired").disabled = false;
+        result.hidden = false;
+      } catch (error) {
+        console.error("Could not inspect uploaded playlist JSON", error);
+        status.textContent = `Could not repair ${file.name}: ${error.message}`;
+      }
+    }
     function updateSnapshotChecklist() {
       const list = document.getElementById("playlist-snapshot-list");
       list.replaceChildren();
@@ -385,7 +627,7 @@
         const heading = makeElement("strong", playlist.name);
         const status = makeElement("span",
           importedSnapshots.has(playlist.listId)
-            ? ` — JSON added (${importedSnapshots.get(playlist.listId).sourceFile})`
+            ? ` — JSON added (${importedSnapshots.get(playlist.listId).sourceFile}; playlist ID matched)`
             : " — waiting for JSON",
           "snapshot-status");
         const url = makeElement("code", playlist.url, "snapshot-url");
@@ -405,18 +647,42 @@
       const readyCount = linkedPlaylists.filter(playlist => importedSnapshots.has(playlist.listId)).length;
       const complete = linkedPlaylists.length > 0 && readyCount === linkedPlaylists.length;
       document.getElementById("snapshot-selection").textContent = snapshotSetupError ||
-        `${readyCount} of ${linkedPlaylists.length} linked playlist snapshots added${complete ? " — ready to check" : ". Add more files whenever you are ready."}`;
-      document.getElementById("run-check").disabled = !complete;
+        `${readyCount} of ${linkedPlaylists.length} linked playlist snapshots added${complete
+          ? " — all linked playlists ready to check"
+          : readyCount
+            ? " — ready to check uploaded playlists; add more files whenever you are ready"
+            : ". Add at least one file to enable checking."}`;
+      document.getElementById("run-check").disabled = readyCount === 0;
       updateExportButtons();
     }
     async function initializeSnapshotChecklist() {
+      const configResponse = await fetch(new URL("config.json", document.baseURI));
+      if (!configResponse.ok) throw new Error(`config.json: HTTP ${configResponse.status}`);
+      const config = await configResponse.json();
+      if (!Array.isArray(config.playlists) || !config.playlists.length) {
+        throw new Error('config.json must define a non-empty "playlists" array.');
+      }
+      const names = new Set();
+      const files = new Set();
+      PLAYLISTS = config.playlists.map((playlist, index) => {
+        if (!playlist || typeof playlist.name !== "string" || !playlist.name.trim() ||
+            typeof playlist.file !== "string" || !playlist.file.startsWith("Playlists/") ||
+            !playlist.file.endsWith(".json") || playlist.file.includes("..") ||
+            names.has(playlist.name) || files.has(playlist.file)) {
+          throw new Error(`config.json has an invalid or duplicate playlist entry at index ${index}.`);
+        }
+        names.add(playlist.name);
+        files.add(playlist.file);
+        return { name: playlist.name, file: playlist.file };
+      });
       const loaded = await Promise.all(PLAYLISTS.map(async ({ name, file }) => {
-        const response = await fetch(new URL(file, document.baseURI));
+        const response = await fetch(new URL(file, new URL("config.json", document.baseURI)));
         if (!response.ok) throw new Error(`${file}: HTTP ${response.status}`);
         const playlist = await response.json();
         if (!playlist || playlist.name !== name || !Array.isArray(playlist.videos)) {
           throw new Error(`Invalid playlist JSON in ${file}.`);
         }
+        savedPlaylists.set(file, playlist);
         if (playlist.custom === true) return null;
         if (typeof playlist.url !== "string" || !playlist.url.trim()) {
           throw new Error(`${file} is not marked custom and has no YouTube playlist URL.`);
@@ -427,6 +693,7 @@
       }));
       linkedPlaylists = loaded.filter(Boolean);
       document.getElementById("snapshot-files").disabled = false;
+      document.getElementById("repair-file").disabled = false;
       updateSnapshotChecklist();
     }
     async function addImportedSnapshots(files) {
@@ -443,7 +710,7 @@
       document.getElementById("reports").replaceChildren();
       document.getElementById("summary").textContent = errors.length
         ? `Some files were not added: ${errors.join(" ")}`
-        : "Snapshot files updated. Run the check when all playlists show JSON added.";
+        : "Snapshot files updated. Run the check to compare the uploaded playlists.";
       updateSnapshotChecklist();
     }
     async function loadPlaylist({ name, file }, importedSnapshots) {
@@ -588,10 +855,53 @@
       document.getElementById("download-zip").disabled = !ready;
       document.getElementById("full-restore").disabled = !ready;
       const status = document.getElementById("export-status");
-      if (!complete) status.textContent = "Run the check before exporting. Duplicate warnings will not block exports; rows are kept by default.";
+      if (!completedReports.length) status.textContent = "Run the check before exporting. Duplicate warnings will not block exports; rows are kept by default.";
       else if (failed) status.textContent = "At least one playlist check failed. Fix the issue and run the check again before exporting.";
+      else if (!complete) status.textContent = "Partial check complete. Upload snapshots for every linked playlist and check again to enable complete ZIP exports.";
       else if (pendingReviews) status.textContent = `Review the imported snapshot for ${pendingReviews} saved-row warning${pendingReviews === 1 ? "" : "s"} before exporting. Duplicate warnings are informational and never require a keep-click.`;
       else status.textContent = "Both ZIPs are ready. Duplicate rows are kept by default, and ZIP contents are verified before download.";
+      document.querySelectorAll("[data-json-file]").forEach(button => {
+        const report = completedReports.find(item => item.file === button.dataset.jsonFile);
+        button.disabled = !report || !reportIsApproved(report);
+      });
+    }
+    function addJsonDownloadButton(report, jsonKey, label, actions) {
+      const button = makeElement("button", label);
+      button.type = "button";
+      button.dataset.jsonFile = report.file;
+      button.disabled = !reportIsApproved(report);
+      button.onclick = () => downloadReportJson(report, jsonKey);
+      actions.appendChild(button);
+    }
+    function downloadReportJson(report, jsonKey) {
+      try {
+        if (!reportIsApproved(report)) throw new Error("Review all flagged entries before downloading this playlist.");
+        const content = report[jsonKey];
+        const downloaded = JSON.parse(content);
+        const expected = report.custom
+          ? report.originalPlaylist
+          : {
+              ...report.originalPlaylist,
+              videos: jsonKey === "restoreJson" ? report.restoreRows : report.replacementRows
+            };
+        if (!valuesMatch(expected, downloaded)) {
+          throw new Error(`Generated JSON validation failed for ${report.file}.`);
+        }
+        const blob = new Blob([content], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = report.file.split("/").pop();
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        document.getElementById("summary").textContent =
+          `${report.name} JSON downloaded. Review the file before replacing your original.`;
+      } catch (error) {
+        console.error(`Could not download JSON for ${report.name}`, error);
+        document.getElementById("summary").textContent = `JSON download failed: ${error.message}`;
+      }
     }
     function summarizeSnapshotSource(reports) {
       const linked = reports.filter(report => !report.error && !report.custom).length;
@@ -775,7 +1085,7 @@
       fullRestoreButton.disabled = true;
       try {
         if (completedReports.length !== PLAYLISTS.length || completedReports.some(report => report.error)) {
-          throw new Error("Check all playlists successfully before exporting.");
+          throw new Error("Check every playlist successfully before exporting a complete ZIP.");
         }
         if (!completedReports.every(reportIsApproved)) {
           throw new Error("Review all flagged entries before exporting.");
@@ -837,6 +1147,9 @@
       }
       if (report.custom) {
         card.appendChild(makeElement("p", "Custom/manual playlist. Its URL field is ignored. Recursive JSON value checks passed; its original fields, rows, and ordering are kept unchanged in both ZIP exports."));
+        const actions = makeElement("div", "", "export-actions");
+        addJsonDownloadButton(report, "replacementJson", "Download JSON", actions);
+        card.appendChild(actions);
         const preview = document.createElement("details");
         preview.className = "report-details";
         preview.appendChild(makeElement("summary", `Custom ZIP preview: ${report.savedVideos.length} manually maintained entries`));
@@ -931,6 +1244,10 @@
       preview.appendChild(makeElement("p",       `The playlist name from your JSON is preserved. Video titles for matching rows use the imported snapshot title when available. No rows were automatically removed or artist names normalized. Replacement keeps ${report.replacementRows.length} saved/snapshot rows. It contains ${replacementIdGroups} repeated-ID group${replacementIdGroups === 1 ? "" : "s"} and ${replacementTopicGroups} possible Topic-variant group${replacementTopicGroups === 1 ? "" : "s"}; these are informational and do not block export. Full Restore keeps ${report.restoreRows.length} snapshot rows (${restoreDuplicateCount} duplicate/variant groups); any additional saved rows not represented in the snapshot are listed above and require review. Snapshot order is preserved.`));
       preview.appendChild(makeElement("pre", report.replacementJson));
       card.appendChild(preview);
+      const actions = makeElement("div", "", "export-actions");
+      addJsonDownloadButton(report, "replacementJson", "Download Replacement JSON", actions);
+      addJsonDownloadButton(report, "restoreJson", "Download Full Restore JSON", actions);
+      card.appendChild(actions);
       renderReviewItems(report, card);
       const source = document.createElement("a");
       source.href = "https://zapkit.org/youtube/playlist-to-json";
@@ -960,13 +1277,18 @@
       completedReports = [];
       button.textContent = "Checking…";
       reportsElement.replaceChildren();
-      summary.textContent = `Checking all ${PLAYLISTS.length} playlists…`;
+      const linkedByFile = new Map(linkedPlaylists.map(playlist => [playlist.file, playlist]));
+      const playlistsToCheck = PLAYLISTS.filter(playlist => {
+        const linkedPlaylist = linkedByFile.get(playlist.file);
+        return !linkedPlaylist || importedSnapshots.has(linkedPlaylist.listId);
+      });
+      summary.textContent = `Checking ${playlistsToCheck.length} playlists…`;
       try {
-        if (linkedPlaylists.some(playlist => !importedSnapshots.has(playlist.listId))) {
-          summary.textContent = "Add a JSON snapshot for every linked playlist before checking.";
+        if (!linkedPlaylists.some(playlist => importedSnapshots.has(playlist.listId))) {
+          summary.textContent = "Add at least one linked playlist JSON snapshot before checking.";
           return;
         }
-        const reports = await Promise.all(PLAYLISTS.map(async playlist => {
+        const reports = await Promise.all(playlistsToCheck.map(async playlist => {
           try {
             return await loadPlaylist(playlist, importedSnapshots);
           } catch (error) {
@@ -984,12 +1306,12 @@
         )).length;
         const custom = reports.filter(report => !report.error && report.custom).length;
         const checked = reports.length - failed - custom;
-        summary.textContent = `Checked ${checked} linked playlists: ${checked - withDifferences} match, ${withDifferences} with differences, ${custom} custom pass-through, ${failed} failed. ${summarizeSnapshotSource(reports)} This is not a direct confirmation from YouTube.`;
+        summary.textContent = `Checked ${checked} linked playlist${checked === 1 ? "" : "s"}: ${checked - withDifferences} match, ${withDifferences} with differences, ${custom} custom pass-through, ${failed} failed. ${summarizeSnapshotSource(reports)} This is not a direct confirmation from YouTube.`;
         for (const report of reports) reportsElement.appendChild(renderReport(report));
       } finally {
         button.disabled = false;
         snapshotInput.disabled = false;
-        button.textContent = "Check All Playlists";
+        button.textContent = "Check Uploaded Playlists";
         updateExportButtons();
       }
     }
@@ -1010,6 +1332,19 @@
     document.getElementById("run-check").onclick = runCheck;
     document.getElementById("download-zip").onclick = downloadReplacementZip;
     document.getElementById("full-restore").onclick = downloadFullRestoreZip;
+    document.getElementById("repair-file").addEventListener("change", event => {
+      const [file] = event.target.files;
+      event.target.value = "";
+      if (file) handleRepairFile(file);
+    });
+    document.getElementById("download-repaired").onclick = () => {
+      if (!repairResult) return;
+      downloadRepairJson(repairResult.repairedJson, `${repairResult.name}.json`);
+    };
+    document.getElementById("download-restored").onclick = () => {
+      if (!repairResult) return;
+      downloadRepairJson(repairResult.restoredJson, `${repairResult.name}-restored.json`);
+    };
     initializeSnapshotChecklist().catch(error => {
       snapshotSetupError = `Could not load playlist links: ${error.message}`;
       document.getElementById("snapshot-selection").textContent = snapshotSetupError;

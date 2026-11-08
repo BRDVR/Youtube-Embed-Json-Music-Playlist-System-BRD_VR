@@ -509,13 +509,7 @@
     const TITLE_CACHE_KEY = "ytPlaylistPlayer.titles.straight.v5";
     const SAVE_FORMAT = "playlist-player-v5";
     const FirstPlaylistToPlay = "Tasklike";
-    const PLAYLIST_FILES = [
-      { name: "Tasklike", file: "Playlists/Tasklike.json" },
-      { name: "Simple", file: "Playlists/Simple.json" },
-      { name: "RealFr", file: "Playlists/RealFr.json" },
-      { name: "Brain", file: "Playlists/Brain.json" },
-      { name: "Stuffy", file: "Playlists/Stuffy.json" }
-    ];
+    let playlistFiles = [];
     const DEFAULT_PLAYER_CONFIG = {
       responsive: {
         stackBelowWidthPx: 760,
@@ -535,6 +529,7 @@
       },
       controls: {
         keyboardShortcuts: true,
+        useVolumeCurve: true,
         seekSeconds: 10,
         volumeStepPercent: 5,
         initialVolumePercent: 30,
@@ -581,6 +576,27 @@
         throw new Error(`config.json: "${name}" must be an object.`);
       }
       return value;
+    }
+    function validatePlaylistFiles(value) {
+      if (!Array.isArray(value) || !value.length) {
+        throw new Error('config.json: "playlists" must be a non-empty array.');
+      }
+      const names = new Set();
+      const files = new Set();
+      return value.map((entry, index) => {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry) ||
+            typeof entry.name !== "string" || !entry.name.trim() ||
+            typeof entry.file !== "string" || !entry.file.startsWith("Playlists/") ||
+            !entry.file.endsWith(".json") || entry.file.includes("..")) {
+          throw new Error(`config.json: playlists[${index}] must have a name and a JSON file under Playlists/.`);
+        }
+        if (names.has(entry.name) || files.has(entry.file)) {
+          throw new Error(`config.json: duplicate playlist name or file in playlists[${index}].`);
+        }
+        names.add(entry.name);
+        files.add(entry.file);
+        return { name: entry.name, file: entry.file };
+      });
     }
     function configNumber(value, name, min, max) {
       if (!Number.isInteger(value) || value < min || value > max) {
@@ -632,6 +648,7 @@
         },
         controls: {
           keyboardShortcuts: booleanSetting(controls.keyboardShortcuts, "controls.keyboardShortcuts"),
+          useVolumeCurve: booleanSetting(controls.useVolumeCurve, "controls.useVolumeCurve"),
           seekSeconds: configNumber(controls.seekSeconds, "controls.seekSeconds", 1, 120),
           volumeStepPercent: configNumber(controls.volumeStepPercent, "controls.volumeStepPercent", 1, 25),
           initialVolumePercent: configNumber(controls.initialVolumePercent, "controls.initialVolumePercent", 0, 100),
@@ -656,7 +673,9 @@
     async function loadPlayerConfig() {
       const response = await fetch(new URL("config.json", document.baseURI));
       if (!response.ok) throw new Error(`Could not load config.json: HTTP ${response.status}`);
-      return validatePlayerConfig(await response.json());
+      const raw = await response.json();
+      playlistFiles = validatePlaylistFiles(raw.playlists);
+      return validatePlayerConfig(raw);
     }
     function configureResponsiveLayout() {
       const { responsive } = playerConfig;
@@ -801,8 +820,9 @@
     }
 
     async function seedBuiltinPlaylists() {
-      const entries = await Promise.all(PLAYLIST_FILES.map(async ({ name, file }) => {
-        const response = await fetch(new URL(file, document.baseURI));
+      const entries = await Promise.all(playlistFiles.map(async ({ name, file }) => {
+        const fileUrl = new URL(file, new URL("config.json", document.baseURI));
+        const response = await fetch(fileUrl);
         if (!response.ok) throw new Error(`Could not load ${file}: HTTP ${response.status}`);
         const playlist = await response.json();
         if (playlist.name !== name || !Array.isArray(playlist.videos) ||
@@ -1065,8 +1085,28 @@
         .filter(item => !state.unavailable[state.videos[item.orig]?.video_id]);
     }
     function markUnavailable(videoId, reason) {
-      if (!videoId || state.unavailable[videoId]) return;
+      if (!videoId) return;
+      const currentIndex = currentOrigIndex();
+      const currentPosition = state.queuePos;
+      const currentWasUnavailable = state.videos[currentIndex]?.video_id === videoId;
+      const removedBeforeCurrent = state.queue
+        .slice(0, currentPosition)
+        .filter(index => state.videos[index]?.video_id === videoId).length;
+      const originalQueueLength = state.queue.length;
       state.unavailable[videoId] = reason || "unavailable";
+      state.queue = state.queue.filter(index => state.videos[index]?.video_id !== videoId);
+      if (!state.queue.length) {
+        state.queuePos = 0;
+      } else if (currentWasUnavailable) {
+        state.queuePos = currentPosition - removedBeforeCurrent;
+        if (state.queuePos >= state.queue.length) state.queuePos = 0;
+      } else {
+        const preservedPosition = state.queue.indexOf(currentIndex);
+        state.queuePos = preservedPosition >= 0
+          ? preservedPosition
+          : Math.min(currentPosition, state.queue.length - 1);
+      }
+      if (state.queue.length !== originalQueueLength) ytPlaylistSig = "";
       schedulePersist();
       showGoneWarning();
       renderQueue();
@@ -1169,8 +1209,16 @@
     }
 
     /* ── Volume ──────────────────────────────────────────── */
-    function sliderToVolume(pos) { const t = Math.max(0, Math.min(1000, Number(pos))) / 1000; return Math.round(t <= 0.75 ? (t / 0.75) * 50 : 50 + ((t - 0.75) / 0.25) * 50); }
-    function volumeToSlider(vol) { const v = Math.max(0, Math.min(100, Number(vol))); return Math.round((v <= 50 ? (v / 50) * 0.75 : 0.75 + ((v - 50) / 50) * 0.25) * 1000); }
+    function sliderToVolume(pos) {
+      const t = Math.max(0, Math.min(1000, Number(pos))) / 1000;
+      if (!playerConfig.controls.useVolumeCurve) return Math.round(t * 100);
+      return Math.round(t <= 0.75 ? (t / 0.75) * 50 : 50 + ((t - 0.75) / 0.25) * 50);
+    }
+    function volumeToSlider(vol) {
+      const v = Math.max(0, Math.min(100, Number(vol)));
+      if (!playerConfig.controls.useVolumeCurve) return Math.round(v * 10);
+      return Math.round((v <= 50 ? (v / 50) * 0.75 : 0.75 + ((v - 50) / 50) * 0.25) * 1000);
+    }
     function setVolume(vol, fromMute) {
       state.volume = Math.max(0, Math.min(100, Number(vol)));
       if (!fromMute) { state.muted = state.volume === 0; if (state.volume > 0) state.lastVolume = state.volume; }
@@ -1262,7 +1310,18 @@
             if (event.data === YT.PlayerState.PLAYING) { state.playing = true; applyPlaybackRate(); applyChrome(); startTicker(); startMediaSessionKeeper(); capturePlayerMeta(); }
             if (event.data === YT.PlayerState.PAUSED) { state.playing = false; applyChrome(); syncSessionAudio(); }
           },
-          onError: event => { markUnavailable(currentVideo()?.video_id, "error " + event.data); playNext(); }
+          onError: event => {
+            const videoId = currentVideo()?.video_id;
+            markUnavailable(videoId, "error " + event.data);
+            state.currentTime = 0;
+            if (state.queue.length) playCurrent(true);
+            else {
+              state.playing = false;
+              renderNowPlaying();
+              applyChrome();
+              syncSessionAudio();
+            }
+          }
         }
       });
     }
