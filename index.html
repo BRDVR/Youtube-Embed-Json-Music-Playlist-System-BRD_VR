@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Playlist Loader V5</title>
+  <title></title>
   <link rel="icon" type="image/svg+xml" href="./BlueIcon.svg" sizes="any">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -377,47 +377,42 @@
     html[data-theme="classic"] body.queue-thumbnails-hidden .queue-cols span:nth-child(2),
     html[data-theme="classic"] body.queue-thumbnails-hidden .queue-cols span:nth-child(4),
     html[data-theme="classic"] body.queue-thumbnails-hidden .q-item img { display: none; }
-    body.is-flipped:not(.is-stacked) .layout { grid-template-columns: var(--queue-width) minmax(0, 1fr); }
-    body.is-flipped.is-compact-width:not(.is-stacked) .layout {
-      grid-template-columns: var(--compact-queue-width) minmax(0, 1fr);
+    /* Flip the complete rendered interface as one flat viewport-sized surface.
+       Each matrix has unit magnitude (no resizing); transform-origin keeps the
+       reflected surface inside its original bounds. */
+    #app-surface {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      background: inherit;
+      transform-origin: center center;
     }
-    body.is-flipped:not(.is-stacked) .player-column { grid-column: 2; border-left: 1px solid var(--line); border-right: 0; }
-    body.is-flipped:not(.is-stacked) .queue-panel { grid-column: 1; border-right: 1px solid var(--line); border-left: 0; }
-    body.is-flipped #player iframe { transform: scaleX(-1); }
-    body.is-flipped .titlebar,
-    body.is-flipped .toolbar,
-    body.is-flipped .queue-head,
-    body.is-flipped .now-playing-card,
-    body.is-flipped .controls-row { direction: rtl; }
-    body.is-flipped .titlebar > *,
-    body.is-flipped .toolbar > *,
-    body.is-flipped .queue-head > *,
-    body.is-flipped .now-playing-card > *,
-    body.is-flipped .controls-row > * { direction: ltr; }
-    body.is-flipped .queue-cols,
-    body.is-flipped .q-item { direction: rtl; }
-    body.is-flipped .q-title,
-    body.is-flipped .q-orig { direction: ltr; text-align: left; }
-    body.is-flipped .progress-row { direction: rtl; }
-    body.is-flipped #progress { direction: ltr; }
-    body.is-flipped .transport { direction: rtl; }
-    body.is-flipped.is-stacked .layout { grid-template-columns: minmax(0, 1fr); }
-    html[data-theme="classic"] body.is-flipped:not(.is-stacked) .layout {
-      grid-template-columns: var(--queue-width) minmax(0, 1fr);
+    body.is-flipped #app-surface {
+      transform: matrix(-1, 0, 0, 1, 0, 0);
     }
-    html[data-theme="classic"] body.is-flipped.is-compact-width:not(.is-stacked) .layout {
-      grid-template-columns: var(--compact-queue-width) minmax(0, 1fr);
+    body.is-flipped-vertically #app-surface {
+      transform: matrix(1, 0, 0, -1, 0, 0);
     }
-    html[data-theme="classic"] body.is-flipped.is-stacked .layout { grid-template-columns: minmax(0, 1fr); }
+    body.is-flipped.is-flipped-vertically #app-surface {
+      transform: matrix(-1, 0, 0, -1, 0, 0);
+    }
+    body.is-stacked #app-surface,
+    body.is-short-viewport #app-surface {
+      height: auto;
+      min-height: 100vh;
+    }
   </style>
 </head>
 <body>
+  <div id="app-surface">
   <header class="titlebar">
     <div class="brand">
       <div class="logo-mark" aria-hidden="true">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M3 2.2v9.6L12 7 3 2.2z"/></svg>
       </div>
-      <h1>Playlist Loader V5</h1>
+      <h1 id="page-title"></h1>
     </div>
     <div class="status" id="status">Loading…</div>
   </header>
@@ -504,10 +499,28 @@
   <div id="toast" role="status"></div>
 
   <script>
-    const STORE_KEY = "ytPlaylistPlayer.straight.v5";
-    const STORE_KEY_OLD = "ytPlaylistPlayer.straight.v5";
-    const TITLE_CACHE_KEY = "ytPlaylistPlayer.titles.straight.v5";
-    const SAVE_FORMAT = "playlist-player-v5";
+// VERSION INFORMATION
+const VERSION_TITLE = "BRD_VR's Playlist Loader";
+const VERSION_NUMBER = "V6";
+const UPDATE_DATE = "November 11, 2026";
+const UPDATE_TEXT = "Playlists, info files, UI flip, and project version text.";
+
+const VERSION_DISPLAY =
+    `${VERSION_TITLE} - ${VERSION_NUMBER} | ${UPDATE_DATE} | -> ${UPDATE_TEXT}`;
+
+//TAB TITLE
+const PAGE_TITLE = `${VERSION_TITLE} - ${VERSION_NUMBER}`;
+document.title = PAGE_TITLE;
+
+document.getElementById("page-title").textContent = VERSION_DISPLAY;
+
+// STORAGE CONFIGURATION
+const STORE_KEY = "playlist.loader.v6";
+const STORE_KEY_OLD = "ytPlaylistPlayer.straight.v5";
+const TITLE_CACHE_KEY = "playlist.loader.v6.titleCache";
+const SAVE_FORMAT = "playlist.loader.v6";
+
+// CONFIGURATION DEFAULTS
     const FirstPlaylistToPlay = "Tasklike";
     let playlistFiles = [];
     const DEFAULT_PLAYER_CONFIG = {
@@ -520,7 +533,7 @@
         stackedPlayerMinHeightPx: 220,
         stackedQueueMinHeightPx: 280
       },
-      layout: { flipHorizontally: false },
+      layout: { flipHorizontally: false, flipVertically: false },
       appearance: {
         defaultTheme: "classic",
         adaptiveArtworkColors: true,
@@ -635,7 +648,10 @@
           stackedPlayerMinHeightPx: configNumber(responsive.stackedPlayerMinHeightPx, "responsive.stackedPlayerMinHeightPx", 160, 600),
           stackedQueueMinHeightPx: configNumber(responsive.stackedQueueMinHeightPx, "responsive.stackedQueueMinHeightPx", 180, 700)
         },
-        layout: { flipHorizontally: booleanSetting(layout.flipHorizontally, "layout.flipHorizontally") },
+        layout: {
+          flipHorizontally: booleanSetting(layout.flipHorizontally, "layout.flipHorizontally"),
+          flipVertically: booleanSetting(layout.flipVertically, "layout.flipVertically")
+        },
         appearance: {
           defaultTheme: appearance.defaultTheme,
           adaptiveArtworkColors: booleanSetting(appearance.adaptiveArtworkColors, "appearance.adaptiveArtworkColors"),
@@ -684,6 +700,7 @@
       document.body.classList.toggle("is-compact-width", width >= responsive.stackBelowWidthPx && width < responsive.compactBelowWidthPx);
       document.body.classList.toggle("is-short-viewport", window.innerHeight < responsive.shortBelowHeightPx);
       document.body.classList.toggle("is-flipped", playerConfig.layout.flipHorizontally);
+      document.body.classList.toggle("is-flipped-vertically", playerConfig.layout.flipVertically);
       document.body.classList.toggle(
         "queue-thumbnails-hidden",
         !playerConfig.queue.showThumbnails ||
@@ -1499,5 +1516,6 @@
     }
     init();
   </script>
+  </div>
 </body>
 </html>

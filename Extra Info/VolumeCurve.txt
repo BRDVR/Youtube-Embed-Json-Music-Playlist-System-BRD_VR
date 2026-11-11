@@ -1,0 +1,52 @@
+The volume slider uses a custom curve instead of increasing volume 
+evenly (linear). The first 75% of the slider controls volume from 
+0% to 50%, making lower volume adjustments more gradual and precise. 
+The remaining 25% of the 1000 slider steps controls volume from 50% 
+to 100%, allowing the volume to increase much faster near the top. 
+The two formulas let the player convert between slider position and 
+volume percentage in either direction. it is for the ability to get 
+more specifc lower volume values. I keep it at 30% so my system wide 
+can be loud, but my. audio my not be.
+
+VOLUME CURVE FORMULAS
+
+SLIDER TO VOLUME:
+
+t = clamp(p, 0, 1000) / 1000
+
+V(t) =
+  (200 / 3) * t,  if 0 <= t <= 0.75
+  200 * t - 100,  if 0.75 < t <= 1
+
+Volume = round(V(t))
+
+
+VOLUME TO SLIDER (INVERSE):
+
+V = clamp(volume, 0, 100)
+
+p(V) =
+  15 * V,       if 0 <= V <= 50
+  5 * V + 500,  if 50 < V <= 100
+
+Slider Position = round(p(V))
+
+
+VARIABLES:
+
+p = slider position (0–1000)
+t = normalized slider position (0–1)
+V = volume percentage (0–100)
+clamp = restricts a value to the specified range
+round = rounds to the nearest integer
+
+
+BEHAVIOR:
+
+- 0% volume = slider position 0
+- 50% volume = slider position 750
+- 100% volume = slider position 1000
+- The first 75% of slider travel controls 0–50% volume.
+- The final 25% of slider travel controls 50–100% volume.
+- Both conversion functions clamp inputs to their valid ranges.
+- Both functions round their final results to the nearest integer.

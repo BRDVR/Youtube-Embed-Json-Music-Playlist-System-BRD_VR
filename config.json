@@ -3,7 +3,6 @@
     { "name": "Tasklike", "file": "Playlists/Tasklike.json" },
     { "name": "Simple", "file": "Playlists/Simple.json" },
     { "name": "RealFr", "file": "Playlists/RealFr.json" },
-    { "name": "Brain", "file": "Playlists/Brain.json" },
     { "name": "Stuffy", "file": "Playlists/Stuffy.json" },
     { "name": "Techy", "file": "Playlists/Techy.json" }
   ],
@@ -17,7 +16,8 @@
     "stackedQueueMinHeightPx": 280
   },
   "layout": {
-    "flipHorizontally": false
+    "flipHorizontally": false,
+    "flipVertically": false
   },
   "appearance": {
     "defaultTheme": "classic",

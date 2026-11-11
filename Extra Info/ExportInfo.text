@@ -8,7 +8,6 @@ Repeat these steps for each playlist:
    - Position (Yes)
    - Video ID (Yes)
    - Title (Yes)
-   - Thumbnail (No)
    - Channel (Yes)
 4. Choose JSON as the export format and download the file.
 5. Return to Check.html and add the downloaded JSON file. You can add files
