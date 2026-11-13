@@ -131,7 +131,7 @@
         <h2>Repair or identify a playlist JSON</h2>
         <p>Upload any JSON file. The checker will look for video entries, match it to a configured playlist when possible, compare it with your saved file, and prepare a repaired playlist JSON. Files that do not match a configured playlist can still be repaired and downloaded.</p>
         <label for="repair-file">Choose a JSON file</label>
-        <input id="repair-file" type="file" accept=".json,application/json" disabled>
+        <input id="repair-file" type="file" accept=".json,application/json">
         <p id="repair-status" class="source" role="status">Files are inspected locally and are not uploaded.</p>
         <div id="repair-result" hidden>
           <div class="repair-actions">
@@ -154,6 +154,7 @@
     const savedPlaylists = new Map();
     let repairResult = null;
     let snapshotSetupError = "";
+    let playlistLoadErrors = [];
 
     function videoUrl(id) {
       return `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
@@ -347,6 +348,19 @@
       }
       return "";
     }
+    function importedPlaylistAuthor(data) {
+      const candidates = [
+        data.author,
+        data.playlistAuthor,
+        data.playlist_author,
+        data.playlist?.author,
+        data.playlist?.playlistAuthor,
+        data.playlist?.playlist_author
+      ];
+      return candidates.find(value =>
+        value !== undefined && value !== null && value !== ""
+      );
+    }
     function identifyLinkedPlaylist(snapshot) {
       const listId = importedPlaylistId(snapshot);
       return listId ? linkedPlaylists.find(playlist => playlist.listId === listId) || null : null;
@@ -390,6 +404,7 @@
       }
       return {
         id: listId,
+        author: importedPlaylistAuthor(data),
         videos: orderedVideos,
         sourceFile: file.name,
         exportedAt: data.exportedAt || data.exported_at || data.playlist?.exportedAt || ""
@@ -543,9 +558,13 @@
       const originalName = data.name || data.playlist?.name || data.playlist?.title ||
         file.name.replace(/\.json$/i, "") || "Repaired Playlist";
       const name = match ? match.playlist.name : String(originalName).trim();
-      const url = match ? (saved?.url || "") : repairSourceUrl(data);
-      const custom = match ? saved?.custom === true : !url;
-      const base = match ? { ...saved } : { name, custom, url };
+      const url = saved?.url || repairSourceUrl(data);
+      const custom = saved ? saved.custom === true : !url;
+      const base = saved ? { ...saved } : { name, custom, url };
+      const author = importedPlaylistAuthor(data);
+      if (author !== undefined && importedPlaylistAuthor(base) === undefined) {
+        base.author = author;
+      }
       const repaired = { ...base, name, custom, url, videos };
       const restored = {
         ...repaired,
@@ -598,17 +617,25 @@
             snapshotMessage = ` The playlist ID was identified as ${repairResult.name}, but this file is not a complete checker snapshot: ${error.message}`;
           }
         }
-        const info = repairResult.match
-          ? `Matched ${repairResult.name} by ${repairResult.match.reason}; compared with ${savedPlaylists.get(repairResult.match.playlist.file).videos.length} saved rows.`
+        const saved = repairResult.match && savedPlaylists.get(repairResult.match.playlist.file);
+        const info = saved
+          ? `Matched ${repairResult.name} by ${repairResult.match.reason}; compared with ${saved.videos.length} saved rows.`
+          : repairResult.match
+            ? `Matched ${repairResult.name} by ${repairResult.match.reason}, but its saved playlist could not be loaded. Prepared a repair from the uploaded file without saved-row restoration.`
           : `No configured playlist matched. Prepared a standalone playlist named "${repairResult.name}".`;
-        status.textContent = `${info} Found ${repairResult.videos.length} video rows; filled ${repairResult.repairedMetadata} incomplete row${repairResult.repairedMetadata === 1 ? "" : "s"} from saved data.${snapshotMessage}`;
+        const metadataInfo = saved
+          ? `filled ${repairResult.repairedMetadata} incomplete row${repairResult.repairedMetadata === 1 ? "" : "s"} from saved data`
+          : "no saved playlist data was available for metadata completion";
+        status.textContent = `${info} Found ${repairResult.videos.length} video rows; ${metadataInfo}.${snapshotMessage}`;
         if (repairResult.match && repairResult.missingSavedRows.length) {
           details.appendChild(makeElement("p",
             `${repairResult.missingSavedRows.length} saved row${repairResult.missingSavedRows.length === 1 ? " is" : "s are"} absent from the uploaded file. The primary download keeps the uploaded entries; the second download appends those saved rows at the end.`
           ));
           document.getElementById("download-restored").disabled = false;
-        } else if (repairResult.match) {
+        } else if (saved) {
           details.appendChild(makeElement("p", "All saved video occurrences are represented in the uploaded file."));
+        } else if (repairResult.match) {
+          details.appendChild(makeElement("p", "No saved baseline was available, so this repair contains only the recognized uploaded rows."));
         } else {
           details.appendChild(makeElement("p", "The repaired file keeps all recognized video rows and uses the playlist format expected by this project."));
         }
@@ -646,12 +673,18 @@
       }
       const readyCount = linkedPlaylists.filter(playlist => importedSnapshots.has(playlist.listId)).length;
       const complete = linkedPlaylists.length > 0 && readyCount === linkedPlaylists.length;
-      document.getElementById("snapshot-selection").textContent = snapshotSetupError ||
+      const checklistStatus = snapshotSetupError ||
         `${readyCount} of ${linkedPlaylists.length} linked playlist snapshots added${complete
           ? " — all linked playlists ready to check"
           : readyCount
             ? " — ready to check uploaded playlists; add more files whenever you are ready"
             : ". Add at least one file to enable checking."}`;
+      document.getElementById("snapshot-selection").textContent = playlistLoadErrors.length
+        ? `${checklistStatus} ${playlistLoadErrors.length} configured playlist file${playlistLoadErrors.length === 1 ? " could not" : "s could not"} be loaded; repair remains available.`
+        : checklistStatus;
+      for (const error of playlistLoadErrors) {
+        list.appendChild(makeElement("li", error, "error"));
+      }
       document.getElementById("run-check").disabled = readyCount === 0;
       updateExportButtons();
     }
@@ -676,24 +709,28 @@
         return { name: playlist.name, file: playlist.file };
       });
       const loaded = await Promise.all(PLAYLISTS.map(async ({ name, file }) => {
-        const response = await fetch(new URL(file, new URL("config.json", document.baseURI)));
-        if (!response.ok) throw new Error(`${file}: HTTP ${response.status}`);
-        const playlist = await response.json();
-        if (!playlist || playlist.name !== name || !Array.isArray(playlist.videos)) {
-          throw new Error(`Invalid playlist JSON in ${file}.`);
+        try {
+          const response = await fetch(new URL(file, new URL("config.json", document.baseURI)));
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const playlist = await response.json();
+          if (!playlist || playlist.name !== name || !Array.isArray(playlist.videos)) {
+            throw new Error("invalid playlist name or videos array");
+          }
+          savedPlaylists.set(file, playlist);
+          if (playlist.custom === true) return null;
+          if (typeof playlist.url !== "string" || !playlist.url.trim()) {
+            throw new Error("not marked custom and has no YouTube playlist URL");
+          }
+          const listId = new URL(playlist.url).searchParams.get("list");
+          if (!listId) throw new Error("does not contain a YouTube playlist ID");
+          return { name, file, listId, url: `https://www.youtube.com/playlist?list=${encodeURIComponent(listId)}` };
+        } catch (error) {
+          playlistLoadErrors.push(`${file}: ${error.message}`);
+          return null;
         }
-        savedPlaylists.set(file, playlist);
-        if (playlist.custom === true) return null;
-        if (typeof playlist.url !== "string" || !playlist.url.trim()) {
-          throw new Error(`${file} is not marked custom and has no YouTube playlist URL.`);
-        }
-        const listId = new URL(playlist.url).searchParams.get("list");
-        if (!listId) throw new Error(`${file} does not contain a YouTube playlist ID.`);
-        return { name, file, listId, url: `https://www.youtube.com/playlist?list=${encodeURIComponent(listId)}` };
       }));
       linkedPlaylists = loaded.filter(Boolean);
       document.getElementById("snapshot-files").disabled = false;
-      document.getElementById("repair-file").disabled = false;
       updateSnapshotChecklist();
     }
     async function addImportedSnapshots(files) {
@@ -817,19 +854,24 @@
           return row;
         });
       const restoreRows = restoreCandidates;
-      const replacementJson = serializeJson({ ...playlist, videos: replacementRows }) + "\n";
-      const restoreJson = serializeJson({ ...playlist, videos: restoreRows }) + "\n";
+      const outputPlaylist = { ...playlist };
+      const snapshotAuthor = importedPlaylistAuthor(live);
+      if (snapshotAuthor !== undefined && importedPlaylistAuthor(outputPlaylist) === undefined) {
+        outputPlaylist.author = snapshotAuthor;
+      }
+      const replacementJson = serializeJson({ ...outputPlaylist, videos: replacementRows }) + "\n";
+      const restoreJson = serializeJson({ ...outputPlaylist, videos: restoreRows }) + "\n";
       const report = {
         name, file, listId, savedVideos, liveVideos: available, comparison, metadataGaps,
         additionMetadata, replacementRows, replacementJson, restoreRows, restoreJson,
-        originalPlaylist: playlist,
+        originalPlaylist: outputPlaylist,
         snapshotFile: live.sourceFile,
         exportedAt: typeof live.exportedAt === "string" ? live.exportedAt : ""
       };
       const sourceFingerprint = JSON.stringify({ playlist, liveVideos: live.videos });
       report.exportIntegrityValid =
-        valuesMatch({ ...playlist, videos: replacementRows }, JSON.parse(replacementJson)) &&
-        valuesMatch({ ...playlist, videos: restoreRows }, JSON.parse(restoreJson));
+        valuesMatch({ ...outputPlaylist, videos: replacementRows }, JSON.parse(replacementJson)) &&
+        valuesMatch({ ...outputPlaylist, videos: restoreRows }, JSON.parse(restoreJson));
       if (!report.exportIntegrityValid) throw new Error(`${file}: generated export value validation failed.`);
       report.reviewItems = makeReviewItems(report, sourceFingerprint);
       return report;

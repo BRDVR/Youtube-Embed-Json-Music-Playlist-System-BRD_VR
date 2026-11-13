@@ -1,7 +1,7 @@
 {
   "name": "Tasklike",
   "custom": false,
-  "url": "https://www.youtube.com/watch?v=fjLxd6SnwI8&list=PLCkc8vHfqcGqDrApY5s2dahvJFr5NCdRH",
+  "url": "https://www.youtube.com/playlist?list=PLZt8T3o-Tfbc",
   "videos": [
     ["Ragtime Rollout (Taskmaster OST Cover)","qPhU0lSwI-0","vineytunes"],
     ["Heavy Metals (Taskmaster AU OST Cover)","eQbIXtWQ_PI","vineytunes"],
@@ -67,7 +67,6 @@
     ["Tense as a Banjo (Taskmaster OST)","T2wHaAAp7G4","vineytunes"],
     ["Balkan Punk (Taskmaster OST)","5KHrMpHd9A0","vineytunes"],
     ["Make It Wayne (Taskmaster OST Cover)","Zoe0XDie4lo","vineytunes"],
-    ["Roaring 20s (Taskmaster OST)","oqqPeJ3Fa8w","vineytunes"],
     ["Head in the Clouds - In Full (Taskmaster OST)","c4P3EkXy7Vk","vineytunes"],
     ["Main Theme Musicbox (Taskmaster OST)","UVvsH6PiFPk","vineytunes"],
     ["More Spies (Taskmaster OST)","CdpnVE34B4Q","vineytunes"],
@@ -106,6 +105,7 @@
     ["Russian Folk Ska (Taskmaster OST)","nbDXmKlSRsQ","vineytunes"],
     ["Baroque and Roll (Taskmaster OST)","h78Slbf-fGw","vineytunes"],
     ["Taller Than a Wolf (Taskmaster OST)","geLs042zTe8","vineytunes"],
-    ["Rotten Eggs (Taskmaster OST)","jWeG9xVAsLw","vineytunes"]
+    ["Rotten Eggs (Taskmaster OST)","jWeG9xVAsLw","vineytunes"],
+    ["Roaring 20s (Taskmaster OST)","oqqPeJ3Fa8w","vineytunes"]
   ]
 }

@@ -4,7 +4,8 @@
     { "name": "Simple", "file": "Playlists/Simple.json" },
     { "name": "RealFr", "file": "Playlists/RealFr.json" },
     { "name": "Stuffy", "file": "Playlists/Stuffy.json" },
-    { "name": "Techy", "file": "Playlists/Techy.json" }
+    { "name": "Techy", "file": "Playlists/Techy.json" },
+    { "name": "Cold", "file": "Playlists/Cold.json" }
   ],
   "responsive": {
     "stackBelowWidthPx": 760,

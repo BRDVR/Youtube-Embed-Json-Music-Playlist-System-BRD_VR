@@ -1,0 +1,825 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Playlist JSON Viewer</title>
+<style>
+:root {
+    color-scheme: dark;
+    --bg: #0b0d10;
+    --panel: #12161d;
+    --panel-raised: #181e27;
+    --panel-hover: #202936;
+    --line: rgba(255, 255, 255, .08);
+    --text: #eef2f6;
+    --muted: #929eae;
+    --accent: #78b7ff;
+    --accent-soft: rgba(120, 183, 255, .12);
+    --red: #ff9090;
+    --green: #84d6aa;
+    --radius: 14px;
+    --shadow: 0 18px 50px rgba(0, 0, 0, .22);
+}
+
+* { box-sizing: border-box; }
+
+html { min-width: 320px; }
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+        radial-gradient(900px 460px at 10% -15%, rgba(120, 183, 255, .11), transparent 60%),
+        radial-gradient(700px 360px at 100% 0%, rgba(49, 102, 160, .1), transparent 58%),
+        var(--bg);
+    color: var(--text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+header {
+    padding: 24px clamp(18px, 4vw, 48px);
+    background: rgba(18, 22, 29, .78);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(16px);
+}
+
+header h1 {
+    margin: 0 0 3px;
+    font-size: clamp(20px, 2.2vw, 25px);
+    letter-spacing: -.035em;
+    line-height: 1.2;
+}
+
+header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 248px minmax(0, 1fr);
+    min-height: calc(100vh - 82px);
+}
+
+.sidebar {
+    padding: 24px 14px;
+    background: rgba(18, 22, 29, .72);
+    border-right: 1px solid var(--line);
+}
+
+.sidebar h3 {
+    margin: 0 0 12px;
+    padding: 0 11px;
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+}
+
+#playlistButtons { display: grid; gap: 5px; }
+
+.playlist-button {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 12px;
+    padding: 11px 12px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: #cbd4df;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 550;
+    transition: background .16s ease, border-color .16s ease, color .16s ease;
+}
+
+.playlist-button:hover {
+    background: rgba(255, 255, 255, .045);
+    color: var(--text);
+}
+
+.playlist-button.active {
+    background: var(--accent-soft);
+    border-color: rgba(120, 183, 255, .2);
+    color: var(--accent);
+}
+
+.count {
+    color: var(--muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+
+.playlist-button.active .count {
+    color: #a9d2ff;
+}
+
+main {
+    min-width: 0;
+    padding: clamp(20px, 3.5vw, 42px);
+    max-width: 1700px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+#status {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 22px;
+}
+
+#status:not(.error)::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 12px rgba(132, 214, 170, .42);
+}
+
+#status.error {
+    color: var(--red);
+}
+
+#status.error::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--red);
+}
+
+.topline {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.topline h2 {
+    margin: 0 0 8px;
+    font-size: clamp(24px, 3vw, 32px);
+    letter-spacing: -.04em;
+    line-height: 1.15;
+}
+
+.subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.metadata {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 25px 0;
+}
+
+.meta {
+    flex: 1 1 130px;
+    min-width: 0;
+    padding: 14px 16px;
+    background: linear-gradient(145deg, rgba(24, 30, 39, .96), rgba(18, 22, 29, .96));
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .1);
+}
+
+.meta:last-child {
+    flex-grow: 2;
+}
+
+.meta-label {
+    color: var(--muted);
+    font-size: 11px;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+
+.meta-value {
+    font-size: 15px;
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+button.action {
+    min-height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 0 14px;
+    background: var(--panel-raised);
+    color: var(--text);
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+button.action:hover {
+    background: var(--panel-hover);
+    border-color: rgba(120, 183, 255, .35);
+}
+
+button.action:active {
+    transform: translateY(1px);
+}
+
+.search {
+    width: 100%;
+    min-height: 46px;
+    padding: 0 15px;
+    background: rgba(18, 22, 29, .84);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin: 0 0 14px;
+    font: inherit;
+    font-size: 14px;
+    transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.search::placeholder { color: #788493; }
+
+.search:focus-visible {
+    outline: none;
+    border-color: rgba(120, 183, 255, .7);
+    box-shadow: 0 0 0 3px rgba(120, 183, 255, .13);
+}
+
+.table-wrap {
+    overflow-x: auto;
+    background: rgba(18, 22, 29, .82);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+}
+
+table {
+    width: 100%;
+    min-width: 620px;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 13px;
+}
+
+th {
+    position: sticky;
+    top: 0;
+    padding: 13px 15px;
+    background: #1a2029;
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    white-space: nowrap;
+}
+
+td {
+    padding: 12px 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, .055);
+    vertical-align: middle;
+}
+
+tbody tr:last-child td { border-bottom: 0; }
+
+tbody tr:nth-child(even) td {
+    background: rgba(255, 255, 255, .014);
+}
+
+tbody tr:hover td {
+    background: rgba(120, 183, 255, .055);
+}
+
+td.number {
+    color: var(--muted);
+    width: 58px;
+    font-variant-numeric: tabular-nums;
+}
+
+td.id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--accent);
+    white-space: nowrap;
+}
+
+td.artist {
+    color: var(--muted);
+    min-width: 150px;
+}
+
+.empty {
+    padding: 42px 20px;
+    text-align: center;
+    color: var(--muted);
+}
+
+details {
+    margin-top: 18px;
+    background: rgba(18, 22, 29, .72);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+summary {
+    cursor: pointer;
+    padding: 14px 16px;
+    color: #c7d1dc;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+summary:hover { color: var(--accent); }
+
+summary:focus-visible,
+.playlist-button:focus-visible,
+button.action:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+details pre {
+    margin: 0;
+    padding: 16px;
+    overflow: auto;
+    color: #b9c9e8;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    border-top: 1px solid var(--line);
+}
+
+[hidden] { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+    }
+}
+
+@media(max-width: 700px) {
+    .layout {
+        grid-template-columns: 1fr;
+        min-height: calc(100vh - 72px);
+    }
+
+    .sidebar {
+        padding: 10px 14px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .sidebar h3 { display: none; }
+
+    #playlistButtons {
+        display: flex;
+        overflow-x: auto;
+        gap: 7px;
+        padding: 2px 2px 5px;
+        scrollbar-width: thin;
+    }
+
+    .playlist-button {
+        width: auto;
+        flex-shrink: 0;
+        padding: 9px 12px;
+    }
+
+    main { padding: 24px 16px; }
+
+    .topline { align-items: stretch; }
+
+    .actions { width: 100%; }
+
+    button.action { flex: 1; }
+
+    .metadata {
+        gap: 9px;
+        margin: 20px 0;
+    }
+
+    .meta {
+        flex-basis: calc(50% - 5px);
+        padding: 12px;
+    }
+
+    .meta:last-child { flex-basis: 100%; }
+
+    .meta-value { font-size: 14px; }
+
+    .table-wrap { border-radius: 10px; }
+
+    th, td { padding-left: 12px; padding-right: 12px; }
+}
+
+@media(max-width: 380px) {
+    main { padding-right: 12px; padding-left: 12px; }
+
+    .actions { display: grid; grid-template-columns: 1fr 1fr; }
+
+    button.action { padding: 0 8px; }
+}
+
+@media (min-width: 701px) {
+    .sidebar {
+        position: sticky;
+        top: 0;
+        align-self: start;
+        max-height: 100vh;
+        overflow-y: auto;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Playlist JSON Viewer</h1>
+    <p>Browse, search, and inspect your playlist files.</p>
+</header>
+
+<div class="layout">
+
+    <aside class="sidebar">
+        <h3>Playlists</h3>
+        <div id="playlistButtons"></div>
+    </aside>
+
+    <main>
+        <div id="status">Loading configuration...</div>
+
+        <div id="viewer" hidden>
+            <div class="topline">
+                <div>
+                    <h2 id="playlistName"></h2>
+                    <div class="subtitle" id="filename"></div>
+                </div>
+
+                <div class="actions">
+                    <button class="action" id="copyIds">Copy All IDs</button>
+                    <button class="action" id="copyJson">Copy JSON</button>
+                </div>
+            </div>
+
+            <div class="metadata">
+                <div class="meta">
+                    <div class="meta-label">Videos</div>
+                    <div class="meta-value" id="videoCount"></div>
+                </div>
+
+                <div class="meta">
+                    <div class="meta-label">Custom</div>
+                    <div class="meta-value" id="customValue"></div>
+                </div>
+
+                <div class="meta">
+                    <div class="meta-label">URL</div>
+                    <div class="meta-value" id="urlValue"></div>
+                </div>
+            </div>
+
+            <input
+                class="search"
+                id="search"
+                placeholder="Search titles, IDs, or artists..."
+                autocomplete="off"
+                aria-label="Search playlist videos"
+            >
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Title</th>
+                            <th>YouTube ID</th>
+                            <th>Artist</th>
+                        </tr>
+                    </thead>
+                    <tbody id="videoRows"></tbody>
+                </table>
+                <div class="empty" id="empty" hidden>
+                    No matching videos found.
+                </div>
+            </div>
+
+            <details>
+                <summary>View Raw JSON</summary>
+                <pre id="rawJson"></pre>
+            </details>
+        </div>
+    </main>
+
+</div>
+
+<script>
+let playlists = [];
+const loaded = {};
+let currentPlaylist = null;
+
+const buttons = document.getElementById("playlistButtons");
+const status = document.getElementById("status");
+const viewer = document.getElementById("viewer");
+const search = document.getElementById("search");
+
+async function loadConfiguration() {
+    try {
+        const response = await fetch("../config.json");
+
+        if (!response.ok) {
+            throw new Error(`Config HTTP ${response.status}`);
+        }
+
+        const config = await response.json();
+
+        if (!Array.isArray(config.playlists)) {
+            throw new Error("Config must contain a playlists array.");
+        }
+
+        playlists = config.playlists.filter(item =>
+            item &&
+            typeof item.name === "string" &&
+            typeof item.file === "string"
+        );
+
+        if (!playlists.length) {
+            throw new Error("No valid playlists found in config.");
+        }
+
+        createButtons();
+        await loadPlaylists();
+
+    } catch (error) {
+        status.className = "error";
+        status.textContent = `Configuration error: ${error.message}`;
+    }
+}
+
+function createButtons() {
+    buttons.innerHTML = "";
+
+    playlists.forEach(playlist => {
+        const button = document.createElement("button");
+        button.className = "playlist-button";
+        button.dataset.name = playlist.name;
+
+        const label = document.createElement("span");
+        label.textContent = playlist.name;
+
+        const count = document.createElement("span");
+        count.className = "count";
+        count.id = `count-${playlists.indexOf(playlist)}`;
+
+        button.append(label, count);
+
+        button.addEventListener("click", () => {
+            selectPlaylist(playlist.name, true);
+        });
+
+        buttons.appendChild(button);
+    });
+}
+
+async function loadPlaylists() {
+    const results = await Promise.allSettled(
+        playlists.map(async (playlist, index) => {
+            const configUrl = new URL("../config.json", location.href);
+const response = await fetch(
+    new URL(playlist.file, configUrl)
+);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (!Array.isArray(data.videos)) {
+                throw new Error("Missing videos array");
+            }
+
+            loaded[playlist.name] = {
+                data,
+                file: playlist.file
+            };
+
+            document.getElementById(`count-${index}`).textContent =
+                data.videos.length;
+        })
+    );
+
+    const failed = results
+        .map((result, index) => ({
+            name: playlists[index].name,
+            result
+        }))
+        .filter(item => item.result.status === "rejected");
+
+    const successful = playlists.filter(
+        playlist => loaded[playlist.name]
+    );
+
+    if (failed.length) {
+        status.className = "error";
+        status.textContent =
+            `${successful.length} of ${playlists.length} playlists loaded. ` +
+            failed.map(item => item.name).join(", ") +
+            " failed to load.";
+    } else {
+        status.className = "";
+        status.textContent =
+            `All ${playlists.length} playlists loaded successfully.`;
+    }
+
+    if (successful.length) {
+        const requested = new URLSearchParams(location.search)
+            .get("playlist");
+
+        const selected = successful.find(
+            playlist =>
+                playlist.name.toLowerCase() === requested?.toLowerCase()
+        );
+
+        selectPlaylist(
+            (selected || successful[0]).name,
+            false
+        );
+    }
+}
+
+function selectPlaylist(name, updateUrl) {
+    if (!loaded[name]) return;
+
+    currentPlaylist = name;
+
+    document.querySelectorAll(".playlist-button").forEach(button => {
+        button.classList.toggle(
+            "active",
+            button.dataset.name === name
+        );
+    });
+
+    if (updateUrl) {
+        const url = new URL(location.href);
+        url.searchParams.set("playlist", name);
+        history.pushState({}, "", url);
+    }
+
+    search.value = "";
+    renderPlaylist();
+}
+
+function renderPlaylist() {
+    const { data, file } = loaded[currentPlaylist];
+
+    viewer.hidden = false;
+
+    document.getElementById("playlistName").textContent =
+        data.name || currentPlaylist;
+
+    document.getElementById("filename").textContent = file;
+
+    document.getElementById("videoCount").textContent =
+        data.videos.length;
+
+    document.getElementById("customValue").textContent =
+        String(data.custom ?? "Not specified");
+
+    document.getElementById("urlValue").textContent =
+        data.url || "Not specified";
+
+    document.getElementById("rawJson").textContent =
+        JSON.stringify(data, null, 2);
+
+    renderVideos();
+}
+
+function renderVideos() {
+    const data = loaded[currentPlaylist].data;
+    const query = search.value.toLowerCase();
+
+    const rows = document.getElementById("videoRows");
+    const empty = document.getElementById("empty");
+
+    rows.innerHTML = "";
+
+    let shown = 0;
+
+    data.videos.forEach((video, index) => {
+        const [title, id, artist] = video;
+
+        const values = [
+            title || "",
+            id || "",
+            artist || ""
+        ];
+
+        if (!values.join(" ").toLowerCase().includes(query)) {
+            return;
+        }
+
+        shown++;
+
+        const row = document.createElement("tr");
+
+        const numberCell = document.createElement("td");
+        numberCell.className = "number";
+        numberCell.textContent = index + 1;
+
+        const titleCell = document.createElement("td");
+        titleCell.textContent = title || "";
+
+        const idCell = document.createElement("td");
+        idCell.className = "id";
+        idCell.textContent = id || "";
+
+        const artistCell = document.createElement("td");
+        artistCell.className = "artist";
+        artistCell.textContent = artist || "";
+
+        row.append(
+            numberCell,
+            titleCell,
+            idCell,
+            artistCell
+        );
+
+        rows.appendChild(row);
+    });
+
+    empty.hidden = shown !== 0;
+}
+
+search.addEventListener("input", renderVideos);
+
+document.getElementById("copyIds").addEventListener("click", async () => {
+    const ids = loaded[currentPlaylist].data.videos
+        .map(video => video[1])
+        .join("\n");
+
+    await navigator.clipboard.writeText(ids);
+
+    const button = document.getElementById("copyIds");
+    button.textContent = "Copied!";
+
+    setTimeout(() => {
+        button.textContent = "Copy All IDs";
+    }, 1500);
+});
+
+document.getElementById("copyJson").addEventListener("click", async () => {
+    await navigator.clipboard.writeText(
+        JSON.stringify(loaded[currentPlaylist].data, null, 2)
+    );
+
+    const button = document.getElementById("copyJson");
+    button.textContent = "Copied!";
+
+    setTimeout(() => {
+        button.textContent = "Copy JSON";
+    }, 1500);
+});
+
+window.addEventListener("popstate", () => {
+    const requested = new URLSearchParams(location.search)
+        .get("playlist");
+
+    const match = playlists.find(
+        playlist =>
+            playlist.name.toLowerCase() === requested?.toLowerCase()
+    );
+
+    if (match && loaded[match.name]) {
+        selectPlaylist(match.name, false);
+    }
+});
+
+loadConfiguration();
+</script>
+
+</body>
+</html>

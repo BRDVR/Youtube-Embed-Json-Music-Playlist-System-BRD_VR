@@ -1,3 +1,6 @@
+# Context
+The version text refers to the project, not it's file.
+
 # BRD_VR YouTube Playlist Project
 
 This project is a JSON-based playlist player that plays videos through YouTube's official embeds. The playlists included here are the playlists that I use through GitHub Pages daily. They are examples for this project, not a required set of videos. As well, this project and it's repository are assisted by Github Copilot and other AI tools.
