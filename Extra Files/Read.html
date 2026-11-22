@@ -720,7 +720,7 @@ function renderPlaylist() {
 
 function renderVideos() {
     const data = loaded[currentPlaylist].data;
-    const query = search.value.toLowerCase();
+    const query = search.value.trim().toLowerCase();
 
     const rows = document.getElementById("videoRows");
     const empty = document.getElementById("empty");
@@ -730,6 +730,7 @@ function renderVideos() {
     let shown = 0;
 
     data.videos.forEach((video, index) => {
+        if (!Array.isArray(video)) return;
         const [title, id, artist] = video;
 
         const values = [
@@ -776,32 +777,56 @@ function renderVideos() {
 
 search.addEventListener("input", renderVideos);
 
-document.getElementById("copyIds").addEventListener("click", async () => {
-    const ids = loaded[currentPlaylist].data.videos
-        .map(video => video[1])
-        .join("\n");
+document.addEventListener("keydown", event => {
+    if (event.key === "/" && document.activeElement !== search && !event.target.closest("input, textarea")) {
+        event.preventDefault();
+        search.focus();
+    }
+});
 
-    await navigator.clipboard.writeText(ids);
-
-    const button = document.getElementById("copyIds");
-    button.textContent = "Copied!";
-
+async function copyText(text, button, successLabel) {
+    const original = button.textContent;
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            throw new Error("Clipboard API unavailable");
+        }
+        button.textContent = successLabel || "Copied!";
+    } catch (error) {
+        const fallback = document.createElement("textarea");
+        fallback.value = text;
+        fallback.setAttribute("readonly", "");
+        fallback.style.position = "fixed";
+        fallback.style.opacity = "0";
+        document.body.appendChild(fallback);
+        fallback.select();
+        try {
+            if (!document.execCommand("copy")) throw new Error("Copy command was rejected");
+            button.textContent = successLabel || "Copied!";
+        } catch (fallbackError) {
+            console.error("Could not copy", error, fallbackError);
+            button.textContent = "Copy failed";
+        } finally {
+            fallback.remove();
+        }
+    }
     setTimeout(() => {
-        button.textContent = "Copy All IDs";
+        if (button.isConnected) button.textContent = original;
     }, 1500);
+}
+
+document.getElementById("copyIds").addEventListener("click", async () => {
+    const ids = (loaded[currentPlaylist]?.data.videos || [])
+        .map(video => Array.isArray(video) ? video[1] : "")
+        .filter(Boolean)
+        .join("\n");
+    await copyText(ids, document.getElementById("copyIds"), "Copied!");
 });
 
 document.getElementById("copyJson").addEventListener("click", async () => {
-    await navigator.clipboard.writeText(
-        JSON.stringify(loaded[currentPlaylist].data, null, 2)
-    );
-
-    const button = document.getElementById("copyJson");
-    button.textContent = "Copied!";
-
-    setTimeout(() => {
-        button.textContent = "Copy JSON";
-    }, 1500);
+    const json = JSON.stringify(loaded[currentPlaylist]?.data || {}, null, 2);
+    await copyText(json, document.getElementById("copyJson"), "Copied!");
 });
 
 window.addEventListener("popstate", () => {

@@ -45,11 +45,6 @@
       --shadow: 0 18px 50px rgba(0, 0, 0, .38);
       --radius: 16px;
       --control-h: 36px;
-      --color-transition-duration: 650ms;
-      --queue-width: 360px;
-      --compact-queue-width: 300px;
-      --stacked-player-min-height: 220px;
-      --stacked-queue-min-height: 280px;
       transition: --teal var(--color-transition-duration) ease,
         --teal-dark var(--color-transition-duration) ease,
         --teal-soft var(--color-transition-duration) ease,
@@ -135,6 +130,7 @@
       flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) var(--queue-width);
       min-height: 0; gap: 0; padding: 0;
     }
+    body:not(.responsive-ready) .layout { visibility: hidden; }
     .player-column, .queue-panel {
       min-width: 0; min-height: 0; display: flex; flex-direction: column;
       background: var(--pane); border: 0; border-radius: 0; overflow: hidden; box-shadow: none;
@@ -426,6 +422,7 @@
   </div>
   <div id="warn-banner">
     <span id="warn-text"></span>
+    <button id="warn-clear">Show them</button>
     <button id="warn-dismiss">Dismiss</button>
   </div>
   <main class="layout">
@@ -449,7 +446,7 @@
         <div class="count" id="queue-count">0 / 0</div>
       </div>
       <div class="queue-search">
-        <input id="search" type="search" placeholder="Search title or number" aria-label="Search queue by title or number" autocomplete="off">
+        <input id="search" type="search" placeholder="Search title, artist, or number" aria-label="Search queue by title, artist, or number" autocomplete="off">
       </div>
       <div class="queue-cols">
         <span>Step</span><span></span><span>Title</span><span></span>
@@ -499,62 +496,10 @@
   <div id="toast" role="status"></div>
 
   <script>
-// VERSION INFORMATION
-const VERSION_TITLE = "BRD_VR's Playlist Loader";
-const VERSION_NUMBER = "V6.3";
-const UPDATE_DATE = "November 13, 2026";
-const UPDATE_TEXT = "Playlists, Checker, Keep the Author, and Config.";
-
-const VERSION_DISPLAY =
-    `${VERSION_TITLE} - ${VERSION_NUMBER} | ${UPDATE_DATE} | -> ${UPDATE_TEXT}`;
-
-//TAB TITLE
-const PAGE_TITLE = `${VERSION_TITLE} - ${VERSION_NUMBER}`;
-document.title = PAGE_TITLE;
-
-document.getElementById("page-title").textContent = VERSION_DISPLAY;
-
-// STORAGE CONFIGURATION
-const STORE_KEY = "playlist.loader.v6";
-const STORE_KEY_OLD = "ytPlaylistPlayer.straight.v5";
-const TITLE_CACHE_KEY = "playlist.loader.v6.titleCache";
-const SAVE_FORMAT = "playlist.loader.v6";
-
-// CONFIGURATION DEFAULTS
-    const FirstPlaylistToPlay = "Tasklike";
+    let pageText = null;
+    let defaultPlaylist = "";
+    let storageConfig = null;
     let playlistFiles = [];
-    const DEFAULT_PLAYER_CONFIG = {
-      responsive: {
-        stackBelowWidthPx: 760,
-        compactBelowWidthPx: 1040,
-        shortBelowHeightPx: 620,
-        queueWidthPx: 360,
-        compactQueueWidthPx: 300,
-        stackedPlayerMinHeightPx: 220,
-        stackedQueueMinHeightPx: 280
-      },
-      layout: { flipHorizontally: false, flipVertically: false },
-      appearance: {
-        defaultTheme: "classic",
-        adaptiveArtworkColors: true,
-        colorTransitionMs: 650,
-        fallbackPalette: { vibrant: "#5ca7ff", dark: "#1a52a3", light: "#9fd0ff" }
-      },
-      controls: {
-        keyboardShortcuts: true,
-        useVolumeCurve: true,
-        seekSeconds: 10,
-        volumeStepPercent: 5,
-        initialVolumePercent: 30,
-        showSpeedControl: true
-      },
-      queue: {
-        showThumbnails: true,
-        hideThumbnailsBelowWidthPx: 560,
-        autoScrollToCurrentTrack: true,
-        confirmBeforeRemoving: true
-      }
-    };
 
     function expandPlaylist(pl) {
       const ids = [], titles = {}, authors = {};
@@ -569,12 +514,12 @@ const SAVE_FORMAT = "playlist.loader.v6";
     const state = {
       videos: [], queue: [], queuePos: 0,
       shuffle: true, loopCurrent: false,
-      volume: 30, lastVolume: 30, muted: false, playbackRate: 1,
+      volume: 0, lastVolume: 0, muted: false, playbackRate: 1,
       currentTime: 0, duration: 0, playing: false,
       player: null, playerReady: false, seeking: false, search: "",
       unavailable: {}, warnDismissed: false,
-      playlistName: "Tasklike", playlistUrl: "", customPlaylist: false, playlists: {},
-      theme: "classic", titleCache: {}, fetchingTitles: false,
+      playlistName: "", playlistUrl: "", customPlaylist: false, playlists: {},
+      theme: null, titleCache: {}, fetchingTitles: false,
       artworkPaletteId: "", artworkPaletteToken: 0
     };
 
@@ -582,6 +527,7 @@ const SAVE_FORMAT = "playlist.loader.v6";
     let saveTimer = null, tickTimer = null, ytPlaylistSig = "";
     let sessionAudio = null, toastTimer = null, mediaSessionTimer = null;
     let lastAutoScrolledQueueTarget = "";
+    let titleFetchController = null, titleFetchGeneration = 0;
 
     function $(id) { return document.getElementById(id); }
     function configObject(value, name) {
@@ -610,6 +556,44 @@ const SAVE_FORMAT = "playlist.loader.v6";
         files.add(entry.file);
         return { name: entry.name, file: entry.file };
       });
+    }
+    function validatePageText(value) {
+      const source = configObject(value, "pageText");
+      const textValue = (name, optional = false) => {
+        if (typeof source[name] !== "string" || (!optional && !source[name].trim())) {
+          throw new Error(`config.json: "pageText.${name}" must be a string${optional ? "" : " with text"}.`);
+        }
+        return source[name].trim();
+      };
+      return {
+        title: textValue("title"),
+        version: textValue("version"),
+        updateDate: textValue("updateDate", true),
+        updateText: textValue("updateText", true)
+      };
+    }
+    function validateStorageConfig(value) {
+      const source = configObject(value, "storage");
+      const key = (name) => {
+        if (typeof source[name] !== "string" || !source[name].trim()) {
+          throw new Error(`config.json: "storage.${name}" must be a non-empty string.`);
+        }
+        return source[name].trim();
+      };
+      return {
+        playerKey: key("playerKey"),
+        legacyPlayerKey: key("legacyPlayerKey"),
+        titleCacheKey: key("titleCacheKey")
+      };
+    }
+    function applyPageText() {
+      if (!pageText) return;
+      const pageTitle = `${pageText.title} - ${pageText.version}`;
+      const updateDetails = [pageText.updateDate, pageText.updateText && `-> ${pageText.updateText}`]
+        .filter(Boolean)
+        .join(" | ");
+      document.title = pageTitle;
+      $("page-title").textContent = updateDetails ? `${pageTitle} | ${updateDetails}` : pageTitle;
     }
     function configNumber(value, name, min, max) {
       if (!Number.isInteger(value) || value < min || value > max) {
@@ -685,12 +669,19 @@ const SAVE_FORMAT = "playlist.loader.v6";
       }
       return validated;
     }
-    let playerConfig = DEFAULT_PLAYER_CONFIG;
+    let playerConfig = null;
     async function loadPlayerConfig() {
       const response = await fetch(new URL("config.json", document.baseURI));
       if (!response.ok) throw new Error(`Could not load config.json: HTTP ${response.status}`);
       const raw = await response.json();
       playlistFiles = validatePlaylistFiles(raw.playlists);
+      pageText = validatePageText(raw.pageText);
+      storageConfig = validateStorageConfig(raw.storage);
+      if (typeof raw.defaultPlaylist !== "string" ||
+          !playlistFiles.some(playlist => playlist.name === raw.defaultPlaylist)) {
+        throw new Error('config.json: "defaultPlaylist" must match a configured playlist name.');
+      }
+      defaultPlaylist = raw.defaultPlaylist;
       return validatePlayerConfig(raw);
     }
     function configureResponsiveLayout() {
@@ -718,6 +709,7 @@ const SAVE_FORMAT = "playlist.loader.v6";
       root.style.setProperty("--color-transition-duration", `${appearance.colorTransitionMs}ms`);
       $("speed-control").hidden = !playerConfig.controls.showSpeedControl;
       document.body.classList.toggle("hide-queue-thumbnails", !queue.showThumbnails);
+      state.theme = appearance.defaultTheme;
       state.volume = playerConfig.controls.initialVolumePercent;
       state.lastVolume = state.volume || 30;
       configureResponsiveLayout();
@@ -731,7 +723,7 @@ const SAVE_FORMAT = "playlist.loader.v6";
     /* ── Persistence ──────────────────────────────────────── */
     function loadStore() {
       try {
-        const raw = localStorage.getItem(STORE_KEY) || localStorage.getItem(STORE_KEY_OLD);
+        const raw = localStorage.getItem(storageConfig.playerKey) || localStorage.getItem(storageConfig.legacyPlayerKey);
         if (!raw) return;
         const d = JSON.parse(raw);
         if (typeof d.volume === "number") state.volume = d.volume;
@@ -746,24 +738,26 @@ const SAVE_FORMAT = "playlist.loader.v6";
         if (Array.isArray(d.queueIds)) state._savedQueueIds = d.queueIds;
         if (typeof d.queuePos === "number") state._savedQueuePos = d.queuePos;
         if (typeof d.currentTime === "number") state._savedTime = d.currentTime;
+        if (Array.isArray(d.unavailable)) state._savedUnavailable = d.unavailable;
       } catch (e) { console.warn("Could not restore settings", e); }
     }
     function persist() {
-      localStorage.setItem(STORE_KEY, JSON.stringify({
+      localStorage.setItem(storageConfig.playerKey, JSON.stringify({
         volume: state.volume, lastVolume: state.lastVolume, muted: state.muted,
         playbackRate: state.playbackRate, shuffle: state.shuffle, loopCurrent: state.loopCurrent,
         theme: state.theme,
         playlistName: state.playlistName,
         queueIds: state.queue.map(i => state.videos[i] && state.videos[i].video_id).filter(Boolean),
         queuePos: state.queuePos,
-        currentTime: state.currentTime
+        currentTime: state.currentTime,
+        unavailable: Object.keys(state.unavailable)
       }));
     }
     function schedulePersist() { clearTimeout(saveTimer); saveTimer = setTimeout(persist, 250); }
 
     /* ── Title cache ─────────────────────────────────────── */
-    function loadTitleCache() { try { const r = localStorage.getItem(TITLE_CACHE_KEY); if (r) state.titleCache = JSON.parse(r); } catch (_) {} }
-    function saveTitleCache() { try { localStorage.setItem(TITLE_CACHE_KEY, JSON.stringify(state.titleCache)); } catch (_) {} }
+    function loadTitleCache() { try { const r = localStorage.getItem(storageConfig.titleCacheKey); if (r) state.titleCache = JSON.parse(r); } catch (_) {} }
+    function saveTitleCache() { try { localStorage.setItem(storageConfig.titleCacheKey, JSON.stringify(state.titleCache)); } catch (_) {} }
     function applyTitleCache() {
       for (const v of state.videos) {
         if (!v?.video_id) continue;
@@ -772,39 +766,67 @@ const SAVE_FORMAT = "playlist.loader.v6";
         v.author = c.author || v.author;
       }
     }
-    async function fetchOEmbed(vid) {
+    async function fetchOEmbed(vid, signal) {
       const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 8000);
+      const abort = () => ctrl.abort();
+      if (signal?.aborted) abort();
+      else signal?.addEventListener("abort", abort, { once: true });
       try {
         const r = await fetch("https://www.youtube.com/oembed?url=" + encodeURIComponent("https://www.youtube.com/watch?v=" + vid) + "&format=json", { signal: ctrl.signal });
-        clearTimeout(t); if (!r.ok) return null; const d = await r.json();
+        if (!r.ok) return null; const d = await r.json();
         return { title: d.title || "", author: d.author_name || "" };
-      } catch (_) { clearTimeout(t); return null; }
+      } catch (_) { return null; }
+      finally {
+        clearTimeout(t);
+        signal?.removeEventListener("abort", abort);
+      }
     }
     async function fetchMissingTitles() {
-      if (!state.videos.length || state.fetchingTitles) return;
+      titleFetchController?.abort();
+      const request = new AbortController();
+      titleFetchController = request;
+      const generation = ++titleFetchGeneration;
+      if (!state.videos.length) {
+        state.fetchingTitles = false;
+        titleFetchController = null;
+        updateStatus();
+        return;
+      }
       const toFetch = [];
       for (let i = 0; i < state.videos.length; i++) {
         const v = state.videos[i]; if (!v.video_id) continue;
         const cached = state.titleCache[v.video_id];
         if (cached?.title && cached?.author) continue;
-        toFetch.push(i);
+        toFetch.push({ index: i, videoId: v.video_id });
       }
-      if (!toFetch.length) return;
+      if (!toFetch.length) {
+        state.fetchingTitles = false;
+        titleFetchController = null;
+        updateStatus();
+        return;
+      }
       state.fetchingTitles = true; updateStatus();
       for (let i = 0; i < toFetch.length; i += 3) {
-        await Promise.allSettled(toFetch.slice(i, i + 3).map(async (idx) => {
-          const v = state.videos[idx]; const r = await fetchOEmbed(v.video_id);
+        await Promise.allSettled(toFetch.slice(i, i + 3).map(async ({ index, videoId }) => {
+          const r = await fetchOEmbed(videoId, request.signal);
+          if (generation !== titleFetchGeneration || state.videos[index]?.video_id !== videoId) return;
+          const v = state.videos[index];
           if (r && r.title && r.title.trim().length > 2) {
             v.title = r.title.trim(); if (r.author) v.author = r.author.trim();
             state.titleCache[v.video_id] = { title: v.title, author: v.author };
           }
         }));
+        if (generation !== titleFetchGeneration) break;
         schedulePersist();
         if (i % 9 === 0 || i + 3 >= toFetch.length) saveTitleCache();
         renderQueue(); renderNowPlaying();
         if (i + 3 < toFetch.length) await new Promise(r => setTimeout(r, 300));
       }
-      state.fetchingTitles = false; updateStatus();
+      if (generation === titleFetchGeneration) {
+        state.fetchingTitles = false;
+        titleFetchController = null;
+        updateStatus();
+      }
     }
 
     /* ── Built-in playlist helpers ───────────────────────── */
@@ -860,19 +882,32 @@ const SAVE_FORMAT = "playlist.loader.v6";
     async function startList() {
       await seedBuiltinPlaylists();
       const savedName = state.playlistName;
-      const name = Object.hasOwn(state.playlists, savedName) ? savedName : FirstPlaylistToPlay;
+      const name = Object.hasOwn(state.playlists, savedName) ? savedName : defaultPlaylist;
       const blk = state.playlists[name];
       const savedQueue = state._savedQueueIds || [];
       const savedPos = state._savedQueuePos || 0;
       const savedTime = state._savedTime || 0;
       restoreBlock(blk);
       state.playlistName = name;
+      if (Array.isArray(state._savedUnavailable)) {
+        for (const id of state._savedUnavailable) {
+          if (state.videos.some(v => v.video_id === id)) state.unavailable[id] = "previously unavailable";
+        }
+      }
       if (savedQueue.length) {
-        const idToIndex = new Map(state.videos.map((v, i) => [v.video_id, i]));
-        const queue = savedQueue.map(id => idToIndex.get(id)).filter(i => i != null);
-        const have = new Set(queue);
-        state.videos.forEach((_, i) => { if (!have.has(i)) queue.push(i); });
+        const remaining = state.videos.map((v, i) => ({ index: i, id: v.video_id }));
+        const queue = [];
+        for (const id of savedQueue) {
+          const pos = remaining.findIndex(item => item.id === id);
+          if (pos >= 0) {
+            queue.push(remaining[pos].index);
+            remaining.splice(pos, 1);
+          }
+        }
+        for (const item of remaining) queue.push(item.index);
         state.queue = queue.length ? queue : state.videos.map((_, i) => i);
+        state.queue = state.queue.filter(i => !state.unavailable[state.videos[i]?.video_id]);
+        if (!state.queue.length) state.queue = state.videos.map((_, i) => i).filter(i => !state.unavailable[state.videos[i]?.video_id]);
         state.queuePos = Math.max(0, Math.min(savedPos, state.queue.length - 1));
         state.currentTime = savedTime;
       } else {
@@ -1185,7 +1220,7 @@ const SAVE_FORMAT = "playlist.loader.v6";
     }
     function renderQueue() {
       const list = $("queue-list"), q = visibleQueue(), filter = state.search.trim().toLowerCase();
-      const shown = filter ? q.filter(item => { const v = state.videos[item.orig]; return (v?.title || "").toLowerCase().includes(filter) || String(item.orig + 1).includes(filter) || String(item.step + 1).includes(filter); }) : q;
+      const shown = filter ? q.filter(item => { const v = state.videos[item.orig]; return (v?.title || "").toLowerCase().includes(filter) || (v?.author || "").toLowerCase().includes(filter) || String(item.orig + 1).includes(filter) || String(item.step + 1).includes(filter); }) : q;
       $("queue-count").textContent = state.queue.length ? "Step " + (state.queuePos + 1) + " / " + state.queue.length + (state.videos.length !== state.queue.length ? " (" + state.videos.length + " loaded)" : "") : "Empty";
       if (!state.videos.length) {
         list.innerHTML = state.customPlaylist
@@ -1406,6 +1441,8 @@ const SAVE_FORMAT = "playlist.loader.v6";
       createQueue();
       state.queuePos = 0;
       state.currentTime = 0;
+      state.search = "";
+      $("search").value = "";
       renderPlaylistSelect();
       updateStatus();
       renderQueue();
@@ -1454,12 +1491,25 @@ const SAVE_FORMAT = "playlist.loader.v6";
       $("btn-project").onclick = () => { window.location.href = "https://github.com/BRDVR/Youtube-Embed-Json-Music-Playlist-System-BRD_VR"; };
       $("speed").onchange = ev => { state.playbackRate = Number(ev.target.value) || 1; applyPlaybackRate(); schedulePersist(); };
       $("volume").oninput = ev => setVolume(sliderToVolume(ev.target.value));
-      $("progress").onmousedown = () => { state.seeking = true; };
-      $("progress").onmouseup = () => { state.seeking = false; };
+      $("progress").onpointerdown = () => { state.seeking = true; };
+      $("progress").onpointerup = () => { state.seeking = false; };
+      $("progress").onpointercancel = () => { state.seeking = false; };
+      $("progress").onlostpointercapture = () => { state.seeking = false; };
       $("progress").oninput = ev => ev.target.style.setProperty("--progress", `${Number(ev.target.value) / 10}%`);
-      $("progress").onchange = ev => { if (!state.duration) return; const t = (Number(ev.target.value) / 1000) * state.duration; state.currentTime = t; if (state.playerReady) state.player.seekTo(t, true); schedulePersist(); };
+      $("progress").onchange = ev => { state.seeking = false; if (!state.duration) return; const t = (Number(ev.target.value) / 1000) * state.duration; state.currentTime = t; if (state.playerReady) state.player.seekTo(t, true); schedulePersist(); };
       $("search").oninput = ev => { state.search = ev.target.value; renderQueue(); };
       $("warn-dismiss").onclick = () => { state.warnDismissed = true; $("warn-banner").classList.remove("visible"); };
+      $("warn-clear").onclick = () => {
+        state.unavailable = {};
+        state.warnDismissed = false;
+        $("warn-banner").classList.remove("visible");
+        createQueue(currentOrigIndex());
+        renderQueue();
+        renderNowPlaying();
+        updateStatus();
+        schedulePersist();
+        showToast("Previously hidden videos are back in the queue.");
+      };
       $("playlist-select").onchange = ev => { if (ev.target.value !== "__current") loadNamedPlaylist(ev.target.value); };
 
       document.addEventListener("keydown", ev => {
@@ -1476,6 +1526,7 @@ const SAVE_FORMAT = "playlist.loader.v6";
         if (ev.key === "m" || ev.key === "M") { ev.preventDefault(); toggleMute(); }
         if (ev.key === "l" || ev.key === "L") { state.loopCurrent = !state.loopCurrent; applyChrome(); renderQueue(); schedulePersist(); }
         if (ev.key === "s" || ev.key === "S") toggleShuffle();
+        if (ev.key === "/") { ev.preventDefault(); $("search").focus(); }
       }, true);
       window.addEventListener("beforeunload", persist);
     }
@@ -1485,11 +1536,12 @@ const SAVE_FORMAT = "playlist.loader.v6";
       try {
         playerConfig = await loadPlayerConfig();
       } catch (error) {
-        console.error("Could not load player configuration; using safe defaults.", error);
-        playerConfig = DEFAULT_PLAYER_CONFIG;
-        showToast("Player settings could not be loaded. Using the default settings.");
+        console.error("Could not load configuration.", error);
+        $("status").textContent = "Configuration loading failed";
+        showToast("Could not load configuration. Check config.json.");
+        return;
       }
-      state.theme = playerConfig.appearance.defaultTheme;
+      applyPageText();
       applyPlayerConfig();
       loadStore();
       loadTitleCache();

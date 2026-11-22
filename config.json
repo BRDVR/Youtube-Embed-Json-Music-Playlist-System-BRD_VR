@@ -2,11 +2,22 @@
   "playlists": [
     { "name": "Tasklike", "file": "Playlists/Tasklike.json" },
     { "name": "Simple", "file": "Playlists/Simple.json" },
-    { "name": "RealFr", "file": "Playlists/RealFr.json" },
-    { "name": "Stuffy", "file": "Playlists/Stuffy.json" },
-    { "name": "Techy", "file": "Playlists/Techy.json" },
-    { "name": "Cold", "file": "Playlists/Cold.json" }
+    { "name": "Euros", "file": "Playlists/Euros.json" },
+    { "name": "Cold", "file": "Playlists/Cold.json" },
+    { "name": "Funk", "file": "Playlists/Funk.json" }
   ],
+  "defaultPlaylist": "Tasklike",
+  "pageText": {
+    "title": "BRD_VR's Playlist Loader",
+    "version": "V6.5",
+    "updateDate": "November 22, 2026",
+    "updateText": "Configurable player settings and playlist updates."
+  },
+  "storage": {
+    "playerKey": "playlist.loader.v6",
+    "legacyPlayerKey": "ytPlaylistPlayer.straight.v5",
+    "titleCacheKey": "playlist.loader.v6.titleCache"
+  },
   "responsive": {
     "stackBelowWidthPx": 760,
     "compactBelowWidthPx": 1040,

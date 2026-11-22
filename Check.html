@@ -121,6 +121,7 @@
       <ul id="playlist-snapshot-list" class="snapshot-list"><li>Loading playlist links…</li></ul>
       <label for="snapshot-files">Add exported playlist JSON files (repeat to add more)</label>
       <input id="snapshot-files" type="file" accept=".json,application/json" multiple disabled>
+      <button id="clear-snapshots" type="button" disabled>Clear All Snapshots</button>
       <p id="snapshot-selection" class="source" role="status">Loading linked playlists…</p>
       <button id="run-check" type="button" disabled>Check Uploaded Playlists</button>
       <button id="download-zip" type="button" disabled>Download Replacement ZIP</button>
@@ -311,7 +312,7 @@
             missingTitle,
             missingArtist,
             title: video.title.trim() || metadata.title || liveById.get(video.id)?.title || "",
-            artist: video.artist.trim() || metadata.artist || "",
+            artist: video.artist.trim() || metadata.artist || liveById.get(video.id)?.channelTitle || "",
             lookupError
           };
         }));
@@ -384,10 +385,10 @@
       const videos = data.videos.map((video, index) => {
         const id = video?.videoId ?? video?.id;
         const position = video?.position;
-        if (!video || typeof id !== "string" || !id.trim() ||
+        if (!video || typeof id !== "string" || !/^[\w-]{11}$/.test(id.trim()) ||
             typeof video.title !== "string" || !Number.isInteger(position) || position < 1 ||
             positions.has(position)) {
-          throw new Error(`${file.name}: invalid video ID, title, or position in entry ${index + 1}. Export Position, Title, and Video ID fields.`);
+          throw new Error(`${file.name}: invalid video ID (must be 11 characters), title, or position in entry ${index + 1}. Export Position, Title, and Video ID fields.`);
         }
         positions.add(position);
         return {
@@ -395,7 +396,8 @@
           title: video.title,
           n: position,
           channelTitle: [video.channelTitle, video.channel, video.artist, video.author]
-            .find(value => typeof value === "string") || ""
+            .find(value => typeof value === "string") || "",
+          unavailable: video.unavailable === true
         };
       });
       const orderedVideos = videos.slice().sort((a, b) => a.n - b.n);
@@ -668,24 +670,45 @@
         exporterLink.target = "_blank";
         exporterLink.rel = "noopener";
         links.append(copyButton, exporterLink);
+        if (importedSnapshots.has(playlist.listId)) {
+          const removeButton = makeElement("button", "Remove snapshot");
+          removeButton.type = "button";
+          removeButton.onclick = () => {
+            importedSnapshots.delete(playlist.listId);
+            completedReports = [];
+            document.getElementById("reports").replaceChildren();
+            document.getElementById("summary").textContent = "Snapshot removed. Upload again or run a new check.";
+            updateSnapshotChecklist();
+          };
+          links.append(removeButton);
+        }
         item.append(heading, status, url, links);
         list.appendChild(item);
       }
       const readyCount = linkedPlaylists.filter(playlist => importedSnapshots.has(playlist.listId)).length;
       const complete = linkedPlaylists.length > 0 && readyCount === linkedPlaylists.length;
-      const checklistStatus = snapshotSetupError ||
-        `${readyCount} of ${linkedPlaylists.length} linked playlist snapshots added${complete
+      let checklistStatus;
+      if (snapshotSetupError) {
+        checklistStatus = snapshotSetupError;
+      } else if (linkedPlaylists.length === 0 && playlistLoadErrors.length === 0) {
+        checklistStatus = "No linked YouTube playlists — only custom playlists. You can check them without snapshots.";
+      } else if (linkedPlaylists.length === 0) {
+        checklistStatus = "No linked playlists could be loaded. Review the playlist errors; custom playlists can be checked without snapshots.";
+      } else {
+        checklistStatus = `${readyCount} of ${linkedPlaylists.length} linked playlist snapshots added${complete
           ? " — all linked playlists ready to check"
           : readyCount
             ? " — ready to check uploaded playlists; add more files whenever you are ready"
             : ". Add at least one file to enable checking."}`;
+      }
       document.getElementById("snapshot-selection").textContent = playlistLoadErrors.length
         ? `${checklistStatus} ${playlistLoadErrors.length} configured playlist file${playlistLoadErrors.length === 1 ? " could not" : "s could not"} be loaded; repair remains available.`
         : checklistStatus;
       for (const error of playlistLoadErrors) {
         list.appendChild(makeElement("li", error, "error"));
       }
-      document.getElementById("run-check").disabled = readyCount === 0;
+      document.getElementById("run-check").disabled = readyCount === 0 && linkedPlaylists.length > 0;
+      document.getElementById("clear-snapshots").disabled = importedSnapshots.size === 0;
       updateExportButtons();
     }
     async function initializeSnapshotChecklist() {
@@ -1314,6 +1337,7 @@
       const reportsElement = document.getElementById("reports");
       button.disabled = true;
       snapshotInput.disabled = true;
+      document.getElementById("clear-snapshots").disabled = true;
       downloadButton.disabled = true;
       fullRestoreButton.disabled = true;
       completedReports = [];
@@ -1326,7 +1350,7 @@
       });
       summary.textContent = `Checking ${playlistsToCheck.length} playlists…`;
       try {
-        if (!linkedPlaylists.some(playlist => importedSnapshots.has(playlist.listId))) {
+        if (linkedPlaylists.length > 0 && !linkedPlaylists.some(playlist => importedSnapshots.has(playlist.listId))) {
           summary.textContent = "Add at least one linked playlist JSON snapshot before checking.";
           return;
         }
@@ -1354,7 +1378,7 @@
         button.disabled = false;
         snapshotInput.disabled = false;
         button.textContent = "Check Uploaded Playlists";
-        updateExportButtons();
+        updateSnapshotChecklist();
       }
     }
 
@@ -1372,6 +1396,14 @@
       }
     });
     document.getElementById("run-check").onclick = runCheck;
+    document.getElementById("clear-snapshots").onclick = () => {
+      if (importedSnapshots.size === 0) return;
+      importedSnapshots.clear();
+      completedReports = [];
+      document.getElementById("reports").replaceChildren();
+      document.getElementById("summary").textContent = "All snapshots cleared.";
+      updateSnapshotChecklist();
+    };
     document.getElementById("download-zip").onclick = downloadReplacementZip;
     document.getElementById("full-restore").onclick = downloadFullRestoreZip;
     document.getElementById("repair-file").addEventListener("change", event => {
